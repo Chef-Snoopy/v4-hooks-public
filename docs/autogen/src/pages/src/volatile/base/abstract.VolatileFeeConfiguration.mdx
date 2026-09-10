@@ -1,0 +1,232 @@
+---
+title: "VolatileFeeConfiguration"
+description: "Per-pool volatile fee config and state, managed by the config manager."
+---
+
+# VolatileFeeConfiguration
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/base/VolatileFeeConfiguration.sol)
+
+**Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
+
+**Title:** VolatileFeeConfiguration
+
+Per-pool volatile fee config and state, managed by the config manager.
+
+## Constants
+
+### ONE_E6
+
+Scalar for E6 precision (1e6 = 100%)
+
+```solidity
+uint256 internal constant ONE_E6 = 1e6;
+```
+
+### VOLATILE_FEE_CONFIGURATION_STORAGE_LOCATION
+
+<i>
+
+keccak256(abi.encode(uint256(keccak256("uniswap.storage.VolatileFeeConfiguration")) - 1)) & ~bytes32(uint256(0xff))
+
+</i>
+
+```solidity
+bytes32 private constant VOLATILE_FEE_CONFIGURATION_STORAGE_LOCATION =
+        0x5d4cd891dc52dbf2064bf3b556cd164a438eebc4f9a9ba71ffb5a8f1380e1e00;
+```
+
+## Functions
+
+<a id="_getvolatilefeeconfigurationstorage"></a>
+
+### _getVolatileFeeConfigurationStorage
+
+Accessor for this contract's ERC-7201 namespaced storage
+
+```solidity
+function _getVolatileFeeConfigurationStorage() internal pure returns (VolatileFeeConfigurationStorage storage $);
+```
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| $ | `VolatileFeeConfigurationStorage` |  |
+
+<a id="updatefeeconfig-poolid-volatilefeeconfig"></a>
+
+### updateFeeConfig
+
+Sets a pool's fee config.
+
+```solidity
+function updateFeeConfig(PoolId poolId_, VolatileFeeConfig calldata feeConfig_)
+        external
+        onlyRole(CONFIG_MANAGER_ROLE);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolId_ | `PoolId` | Pool to update |
+| feeConfig_ | `VolatileFeeConfig` | New fee config |
+
+<a id="batchupdatefeeconfig-poolid-volatilefeeconfig"></a>
+
+### batchUpdateFeeConfig
+
+Sets fee config for multiple pools.
+
+```solidity
+function batchUpdateFeeConfig(PoolId[] calldata poolIds_, VolatileFeeConfig[] calldata feeConfigs_)
+        external
+        onlyRole(CONFIG_MANAGER_ROLE);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolIds_ | `PoolId[]` | Pools to update |
+| feeConfigs_ | `VolatileFeeConfig[]` | New config per pool, matched to poolIds by index |
+
+<a id="feeconfig-poolid"></a>
+
+### feeConfig
+
+Fee config for a pool.
+
+```solidity
+function feeConfig(PoolId poolId)
+        public
+        view
+        returns (
+            uint24 restingSpreadE6,
+            uint24 backrunCaptureFractionE6,
+            uint24 midFadeRateE6,
+            uint24 maxMidFadeE6,
+            uint24 skewRateE6,
+            uint24 maxSkewStepE6,
+            uint24 maxSkewE6,
+            uint24 backrunThresholdE6
+        );
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolId | `PoolId` | Pool to query |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| restingSpreadE6 | `uint24` |  |
+| backrunCaptureFractionE6 | `uint24` |  |
+| midFadeRateE6 | `uint24` |  |
+| maxMidFadeE6 | `uint24` |  |
+| skewRateE6 | `uint24` |  |
+| maxSkewStepE6 | `uint24` |  |
+| maxSkewE6 | `uint24` |  |
+| backrunThresholdE6 | `uint24` |  |
+
+<a id="feestate-poolid"></a>
+
+### feeState
+
+Fee state for a pool.
+
+```solidity
+function feeState(PoolId poolId)
+        public
+        view
+        returns (
+            uint48 blockNumber,
+            uint160 sqrtPriceTopX96,
+            uint24 askPermFeeE6,
+            uint24 askBaselineFeeE6,
+            uint24 bidBaselineFeeE6
+        );
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolId | `PoolId` | Pool to query |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| blockNumber | `uint48` |  |
+| sqrtPriceTopX96 | `uint160` |  |
+| askPermFeeE6 | `uint24` |  |
+| askBaselineFeeE6 | `uint24` |  |
+| bidBaselineFeeE6 | `uint24` |  |
+
+<a id="_updatefeeconfig-poolid-volatilefeeconfig"></a>
+
+### _updateFeeConfig
+
+Validates the config, stores it, and resets the pool's fee state to neutral.
+
+<i>
+
+Bounds hold askPermFeeE6 in [restingSpreadE6 - maxSkewE6, maxSkewE6]; the reset to
+restingSpreadE6 / 2 re-establishes it on every write.
+Also resets sqrtPriceTopX96 to 0, so price impact is treated as 0 until the first swap.
+
+</i>
+
+```solidity
+function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolId | `PoolId` | Pool to configure |
+| _feeConfig | `VolatileFeeConfig` | New config |
+
+<a id="_checkpoolinitialized-poolid"></a>
+
+### _checkPoolInitialized
+
+Reverts PoolNotInitialized unless the pool has a stored config.
+
+```solidity
+function _checkPoolInitialized(PoolId _poolId) internal view;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolId | `PoolId` | Pool to check |
+
+## Structs
+
+### VolatileFeeConfigurationStorage
+
+**Note:**
+
+- **storage-location:** erc7201:uniswap.storage.VolatileFeeConfiguration
+
+```solidity
+struct VolatileFeeConfigurationStorage {
+        /// @notice Per-pool config + state
+        mapping(PoolId => VolatileHookState) hookState;
+    }
+```
+
+**Properties**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| hookState | `mapping(PoolId => VolatileHookState)` |  |
+

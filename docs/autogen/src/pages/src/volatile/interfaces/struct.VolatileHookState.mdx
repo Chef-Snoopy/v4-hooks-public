@@ -1,0 +1,58 @@
+---
+title: "VolatileHookState"
+description: "A pool's hook storage: per-block fee state plus the static config, in one struct."
+---
+
+# VolatileHookState
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+
+A pool's hook storage: per-block fee state plus the static config, in one struct.
+
+<i>
+
+State and config share a struct so the swap path does a single mapping lookup. Only the
+ask-side permanent fee is stored; bid perm = restingSpreadE6 - askPermFeeE6. sqrtPriceTopX96
+is this block's open for mid-block displacement, and the previous block's open for the next
+block's price impact. Config fields mirror `VolatileFeeConfig`, the calldata/event shape.
+
+</i>
+
+```solidity
+struct VolatileHookState {
+    // Mutable, updated on the first swap of each new block.
+    uint48 blockNumber; // block of the last update
+    uint160 sqrtPriceTopX96; // block-open price
+    uint24 askPermFeeE6; // permanent ask-side fee (sticky skew)
+    uint24 askBaselineFeeE6; // ask-side baseline this block
+    uint24 bidBaselineFeeE6; // bid-side baseline this block
+    // Static config, seeded by the config manager; restingSpreadE6 == 0 means unconfigured.
+    uint24 restingSpreadE6;
+    uint24 backrunCaptureFractionE6;
+    uint24 midFadeRateE6;
+    uint24 maxMidFadeE6;
+    uint24 skewRateE6;
+    uint24 maxSkewStepE6;
+    uint24 maxSkewE6;
+    uint24 backrunThresholdE6;
+}
+```
+
+**Properties**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| blockNumber | `uint48` |  |
+| sqrtPriceTopX96 | `uint160` |  |
+| askPermFeeE6 | `uint24` |  |
+| askBaselineFeeE6 | `uint24` |  |
+| bidBaselineFeeE6 | `uint24` |  |
+| restingSpreadE6 | `uint24` |  |
+| backrunCaptureFractionE6 | `uint24` |  |
+| midFadeRateE6 | `uint24` |  |
+| maxMidFadeE6 | `uint24` |  |
+| skewRateE6 | `uint24` |  |
+| maxSkewStepE6 | `uint24` |  |
+| maxSkewE6 | `uint24` |  |
+| backrunThresholdE6 | `uint24` |  |
+

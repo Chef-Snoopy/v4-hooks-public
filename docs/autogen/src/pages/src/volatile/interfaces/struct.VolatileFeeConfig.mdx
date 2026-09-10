@@ -1,0 +1,43 @@
+---
+title: "VolatileFeeConfig"
+description: "Static per-pool config for the volatile fee algorithm, set by the config manager."
+---
+
+# VolatileFeeConfig
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+
+Static per-pool config for the volatile fee algorithm, set by the config manager.
+
+<i>
+
+Fee-like fields are E6 pips; 1e6 = 100%.
+
+</i>
+
+```solidity
+struct VolatileFeeConfig {
+    uint24 restingSpreadE6; // permanent pie: ask + bid fee
+    uint24 backrunCaptureFractionE6; // LP share of backrun profit
+    uint24 midFadeRateE6; // continuing-fee growth rate per unit move
+    uint24 maxMidFadeE6; // cap on the continuing fade
+    uint24 skewRateE6; // baseline lean per unit of price impact
+    uint24 maxSkewStepE6; // max skew change per block
+    uint24 maxSkewE6; // skew ceiling; must be <= restingSpreadE6
+    uint24 backrunThresholdE6; // min price impact that arms the backrun charge
+}
+```
+
+**Properties**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| restingSpreadE6 | `uint24` |  |
+| backrunCaptureFractionE6 | `uint24` |  |
+| midFadeRateE6 | `uint24` |  |
+| maxMidFadeE6 | `uint24` |  |
+| skewRateE6 | `uint24` |  |
+| maxSkewStepE6 | `uint24` |  |
+| maxSkewE6 | `uint24` |  |
+| backrunThresholdE6 | `uint24` |  |
+

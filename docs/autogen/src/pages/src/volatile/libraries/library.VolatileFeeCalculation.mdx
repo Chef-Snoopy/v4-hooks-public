@@ -1,0 +1,228 @@
+---
+title: "VolatileFeeCalculation"
+description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 1e6 = 100%."
+---
+
+# VolatileFeeCalculation
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/libraries/VolatileFeeCalculation.sol)
+
+**Title:** VolatileFeeCalculation
+
+Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 1e6 = 100%.
+
+<i>
+
+Rounding favours LPs: every division that feeds a charged fee rounds up, and the sqrt-ratio
+intermediates in priceImpact round down because a smaller ratio means a larger move.
+
+</i>
+
+## Constants
+
+### ONE_E6
+
+```solidity
+uint256 internal constant ONE_E6 = 1e6;
+```
+
+### MAX_HOOK_FEE_E6
+
+Maximum LP fee the hook can charge. Pool.swap combines the LP fee with the protocol fee.
+Hook fee of 999_999 compounds to 1e6 for any nonzero protocol fee, whereas 999_998 hits
+999_999 for any non-zero protocol fee.
+
+```solidity
+uint256 internal constant MAX_HOOK_FEE_E6 = 1e6 - 2;
+```
+
+### Q48
+
+Scale for the sqrt-ratio intermediate calculation
+
+```solidity
+uint256 internal constant Q48 = 2 ** 48;
+```
+
+## Functions
+
+<a id="priceimpact-uint160-uint160"></a>
+
+### priceImpact
+
+Relative move between two sqrt prices, as an E6 fraction of the reference price.
+
+```solidity
+function priceImpact(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
+        internal
+        pure
+        returns (uint256 moveE6, bool increased);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sqrtPriceNewX96 | `uint160` | Current/new sqrt price |
+| sqrtPriceRefX96 | `uint160` | Reference sqrt price (denominator) |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| moveE6 | `uint256` | Relative move magnitude |
+| increased | `bool` | True if sqrtPriceNewX96 > sqrtPriceRefX96 |
+
+<a id="newpermanentfee-uint24-uint256-uint24-uint24-uint24"></a>
+
+### newPermanentFee
+
+Applies the per-block permanent skew step to the leaning side's fee.
+
+```solidity
+function newPermanentFee(
+        uint24 oldPermFeeE6,
+        uint256 blockPriceImpactE6,
+        uint24 skewRateE6,
+        uint24 maxSkewStepE6,
+        uint24 maxSkewE6
+    ) internal pure returns (uint24 newPermFeeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| oldPermFeeE6 | `uint24` | Previous block's permanent fee for the leaning side |
+| blockPriceImpactE6 | `uint256` | Price impact magnitude (>= 0) |
+| skewRateE6 | `uint24` | Lean per unit of price impact |
+| maxSkewStepE6 | `uint24` | Per-block skew step cap |
+| maxSkewE6 | `uint24` | Skew ceiling |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newPermFeeE6 | `uint24` | New permanent fee for the leaning side |
+
+<a id="midblockbackrunfee-uint24-uint256-uint24"></a>
+
+### midBlockBackrunFee
+
+Mid-block fee for a swap trading back toward the block open (the backrun side).
+
+```solidity
+function midBlockBackrunFee(uint24 baselineFeeE6, uint256 displacementFromTopE6, uint24 backrunCaptureFractionE6)
+        internal
+        pure
+        returns (uint24 feeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| baselineFeeE6 | `uint24` | Block's baseline fee for this side |
+| displacementFromTopE6 | `uint256` | Displacement from the block open (>= 0) |
+| backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| feeE6 | `uint24` | Mid-block fee |
+
+<a id="midblockcontinuingfee-uint24-uint256-uint24-uint24"></a>
+
+### midBlockContinuingFee
+
+Mid-block fee for a swap pushing further in the price-impact direction (the continuing side).
+
+```solidity
+function midBlockContinuingFee(
+        uint24 baselineFeeE6,
+        uint256 displacementFromTopE6,
+        uint24 midFadeRateE6,
+        uint24 maxMidFadeE6
+    ) internal pure returns (uint24 feeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| baselineFeeE6 | `uint24` | Block's baseline fee for this side |
+| displacementFromTopE6 | `uint256` | Displacement from the block open (>= 0) |
+| midFadeRateE6 | `uint24` | Continuing-fee growth rate per unit move |
+| maxMidFadeE6 | `uint24` | Continuing-side fee cap |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| feeE6 | `uint24` | Mid-block fee |
+
+<a id="temporarybackrunfee-uint24-uint24-uint256-uint24-uint24"></a>
+
+### temporaryBackrunFee
+
+Temporary (one-block) fee on the backrun side at the top of a block.
+
+```solidity
+function temporaryBackrunFee(
+        uint24 newPermFeeE6,
+        uint24 oldPermFeeE6,
+        uint256 blockPriceImpactE6,
+        uint24 backrunCaptureFractionE6,
+        uint24 backrunThresholdE6
+    ) internal pure returns (uint24 tempFeeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newPermFeeE6 | `uint24` | Updated permanent skew (this block) |
+| oldPermFeeE6 | `uint24` | Previous permanent skew (last block) |
+| blockPriceImpactE6 | `uint256` | Price impact signal (>= 0) |
+| backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
+| backrunThresholdE6 | `uint24` | Price impact level that arms the backrun charge |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tempFeeE6 | `uint24` | Temporary fee on the backrun side |
+
+<a id="newpermandtempfee-volatilehookstate-uint24-uint256-bool"></a>
+
+### newPermAndTempFee
+
+Composes the top-of-block baselines (permanent + temporary) for a new block.
+
+```solidity
+function newPermAndTempFee(
+        VolatileHookState memory hookState,
+        uint24 oldAskPermFeeE6,
+        uint256 blockPriceImpactE6,
+        bool blockPriceImpactUp
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| hookState | `VolatileHookState` | Pool's hook state, read only for its config half |
+| oldAskPermFeeE6 | `uint24` | Previous block's permanent ask-side fee |
+| blockPriceImpactE6 | `uint256` | Price impact magnitude |
+| blockPriceImpactUp | `bool` | True if price moved up since the previous block |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAskPermFeeE6 | `uint24` | New permanent ask-side fee to store |
+| askBaselineFeeE6 | `uint24` | Ask-side baseline for the block |
+| bidBaselineFeeE6 | `uint24` | Bid-side baseline for the block |
+

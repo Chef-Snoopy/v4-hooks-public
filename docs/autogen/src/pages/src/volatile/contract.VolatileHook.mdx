@@ -1,0 +1,231 @@
+---
+title: "VolatileHook"
+description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads state, calls it, and stores."
+---
+
+# VolatileHook
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/VolatileHook.sol)
+
+**Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatileHook](/src/volatile/interfaces/interface.IVolatileHook)
+
+**Title:** VolatileHook
+
+Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the
+registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads
+state, calls it, and stores.
+
+<i>
+
+Ask = a buy = zeroForOne false; bid = a sell = zeroForOne true.
+
+</i>
+
+**Note:**
+
+- **security-contact:** security@uniswap.org
+
+## Functions
+
+<a id="constructor-ipoolmanager"></a>
+
+### constructor
+
+```solidity
+constructor(IPoolManager _manager) BaseDynamicFeeHook(_manager);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _manager | `IPoolManager` | Uniswap v4 PoolManager |
+
+<a id="initializepool-poolkey-uint160-volatilefeeconfig"></a>
+
+### initializePool
+
+Initializes a pool on the PoolManager and sets its fee config.
+
+<i>
+
+Restricted to POOL_INITIALIZER_ROLE. Reverts MustUseDynamicFee or InvalidHookAddress.
+
+</i>
+
+```solidity
+function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, VolatileFeeConfig calldata feeConfiguration)
+        external
+        onlyRole(POOL_INITIALIZER_ROLE)
+        returns (int24 tick);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolKey | `PoolKey` | Pool key; fee must be the dynamic-fee sentinel and hooks must be this contract |
+| sqrtPriceX96 | `uint160` | Initial sqrt price |
+| feeConfiguration | `VolatileFeeConfig` | Fee config to seed for the pool |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tick | `int24` | Resulting tick |
+
+<a id="_beforeswap-address-poolkey-swapparams-bytes"></a>
+
+### _beforeSwap
+
+Computes the swap's dynamic fee and overrides it via the v4 fee flag.
+
+<i>
+
+The first swap of a block persists the advanced top-of-block state; every swap then
+prices via `_getFee`.
+
+</i>
+
+```solidity
+function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _ | `address` |  |
+| key | `PoolKey` |  |
+| params | `SwapParams` |  |
+| _ | `bytes` |  |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| &lt;none&gt; | `bytes4` |  |
+| &lt;none&gt; | `BeforeSwapDelta` |  |
+| &lt;none&gt; | `uint24` |  |
+
+<a id="getfee-poolkey"></a>
+
+### getFee
+
+The LP fee a swap would be charged this block, per direction.
+
+<i>
+
+Previews the fee the next swap would pay, reverts if the pool is not initialized
+
+</i>
+
+```solidity
+function getFee(PoolKey calldata key) external view returns (uint24 feeE6ZeroForOne, uint24 feeE6OneForZero);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| key | `PoolKey` | The PoolKey of the pool |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| feeE6ZeroForOne | `uint24` | The fee for a zeroForOne swap this block |
+| feeE6OneForZero | `uint24` | The fee for a oneForZero swap this block |
+
+<a id="_loadtopofblockstate-poolid"></a>
+
+### _loadTopOfBlockState
+
+Loads a pool's state, advancing it to this block's baselines in memory without writing.
+
+<i>
+
+New block: recomputes baselines from the price impact since the previous open and caches
+the new open. Same block: returns the stored values unchanged.
+
+</i>
+
+```solidity
+function _loadTopOfBlockState(PoolId _poolId)
+        private
+        view
+        returns (VolatileHookState memory poolState, uint160 currentSqrtPriceX96, bool isNewBlock);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolId | `PoolId` | Pool id |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolState | `VolatileHookState` | Config + state, advanced if isNewBlock |
+| currentSqrtPriceX96 | `uint160` | Pool's current sqrt price |
+| isNewBlock | `bool` | True on the first swap of a new block, or right after a config reset |
+
+<a id="_getfee-volatilehookstate-uint160-bool"></a>
+
+### _getFee
+
+Fee one swap direction pays, escalated from the block's baseline by in-block displacement.
+
+<i>
+
+Never reads the swap amount; size-independence is what makes `getFee` well defined.
+
+</i>
+
+```solidity
+function _getFee(VolatileHookState memory _poolState, uint160 _currentSqrtPriceX96, bool _zeroForOne)
+        private
+        pure
+        returns (uint24);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolState | `VolatileHookState` | Pool's config + top-of-block fee state |
+| _currentSqrtPriceX96 | `uint160` | Pool's current sqrt price |
+| _zeroForOne | `bool` | Swap direction |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| &lt;none&gt; | `uint24` | Fee for this direction, clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6 |
+
+<a id="_tofeeuint24-uint256"></a>
+
+### _toFeeUint24
+
+Clamps a fee to MAX_HOOK_FEE_E6.
+
+```solidity
+function _toFeeUint24(uint256 feeE6) private pure returns (uint24);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| feeE6 | `uint256` |  |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| &lt;none&gt; | `uint24` |  |
+
