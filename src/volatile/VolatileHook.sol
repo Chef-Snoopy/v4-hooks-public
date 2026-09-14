@@ -113,7 +113,7 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         bool blockPriceImpactUp = true;
         if (poolState.sqrtPriceTopX96 != 0) {
             (blockPriceImpactE6, blockPriceImpactUp) =
-                VolatileFeeCalculation.priceImpact(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
+                VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
         }
         (uint24 newAskPerm, uint24 askBaseline, uint24 bidBaseline) = VolatileFeeCalculation.newPermAndTempFee(
             poolState, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
@@ -138,16 +138,14 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         returns (uint24)
     {
         (uint256 displacementFromTopE6, bool displacedUp) =
-            VolatileFeeCalculation.priceImpact(_currentSqrtPriceX96, _poolState.sqrtPriceTopX96);
+            VolatileFeeCalculation.relativeMoveE6(_currentSqrtPriceX96, _poolState.sqrtPriceTopX96);
         // A sell (zeroForOne) pays the bid baseline, a buy pays the ask baseline.
         uint24 baselineFeeE6 = _zeroForOne ? _poolState.bidBaselineFeeE6 : _poolState.askBaselineFeeE6;
 
         if (_zeroForOne == displacedUp) {
             // Trading against the displacement is a backrun.
-            return _toFeeUint24(
-                VolatileFeeCalculation.midBlockBackrunFee(
-                    baselineFeeE6, displacementFromTopE6, _poolState.backrunCaptureFractionE6
-                )
+            return VolatileFeeCalculation.midBlockBackrunFee(
+                baselineFeeE6, displacementFromTopE6, _poolState.backrunCaptureFractionE6
             );
         } else {
             // Trading in the same direction the displacement is a continuation, we apply a trend fee

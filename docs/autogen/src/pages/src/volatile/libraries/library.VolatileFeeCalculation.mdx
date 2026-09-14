@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d73b315559a4ee7a23970fc71b175a27b8f69694/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -14,7 +14,7 @@ Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 
 <i>
 
 Rounding favours LPs: every division that feeds a charged fee rounds up, and the sqrt-ratio
-intermediates in priceImpact round down because a smaller ratio means a larger move.
+intermediates in relativeMoveE6 round down because a smaller ratio means a larger move.
 
 </i>
 
@@ -48,14 +48,14 @@ uint256 internal constant Q48 = 2 ** 48;
 
 ## Functions
 
-<a id="priceimpact-uint160-uint160"></a>
+<a id="relativemovee6-uint160-uint160"></a>
 
-### priceImpact
+### relativeMoveE6
 
 Relative move between two sqrt prices, as an E6 fraction of the reference price.
 
 ```solidity
-function priceImpact(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
+function relativeMoveE6(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
         internal
         pure
         returns (uint256 moveE6, bool increased);

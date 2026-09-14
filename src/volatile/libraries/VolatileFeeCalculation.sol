@@ -8,7 +8,7 @@ import {VolatileHookState} from "../interfaces/IVolatileFeeConfiguration.sol";
 /// @title VolatileFeeCalculation
 /// @notice Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 1e6 = 100%.
 /// @dev Rounding favours LPs: every division that feeds a charged fee rounds up, and the sqrt-ratio
-///      intermediates in priceImpact round down because a smaller ratio means a larger move.
+///      intermediates in relativeMoveE6 round down because a smaller ratio means a larger move.
 library VolatileFeeCalculation {
     /// @notice 1e6 is 100% in pips format
     uint256 constant ONE_E6 = 1e6;
@@ -26,7 +26,7 @@ library VolatileFeeCalculation {
     /// @param sqrtPriceRefX96 Reference sqrt price (denominator)
     /// @return moveE6 Relative move magnitude
     /// @return increased True if sqrtPriceNewX96 > sqrtPriceRefX96
-    function priceImpact(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
+    function relativeMoveE6(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
         internal
         pure
         returns (uint256 moveE6, bool increased)
