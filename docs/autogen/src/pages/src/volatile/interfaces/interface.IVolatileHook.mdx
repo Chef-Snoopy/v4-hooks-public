@@ -5,7 +5,7 @@ description: "Interface for VolatileHook"
 
 # IVolatileHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/interfaces/IVolatileHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/interfaces/IVolatileHook.sol)
 
 **Inherits:** [IDynamicFeeHook](/src/interfaces/interface.IDynamicFeeHook)
 
@@ -18,12 +18,6 @@ Interface for VolatileHook
 ### initializePool
 
 Initializes a pool on the PoolManager and sets its fee config.
-
-<i>
-
-Restricted to POOL_INITIALIZER_ROLE. Reverts MustUseDynamicFee or InvalidHookAddress.
-
-</i>
 
 ```solidity
 function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, VolatileFeeConfig calldata feeConfig)

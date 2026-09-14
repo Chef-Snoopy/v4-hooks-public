@@ -10,7 +10,8 @@ import {VolatileHookState} from "../interfaces/IVolatileFeeConfiguration.sol";
 /// @dev Rounding favours LPs: every division that feeds a charged fee rounds up, and the sqrt-ratio
 ///      intermediates in priceImpact round down because a smaller ratio means a larger move.
 library VolatileFeeCalculation {
-    uint256 internal constant ONE_E6 = 1e6;
+    /// @notice 1e6 is 100% in pips format
+    uint256 constant ONE_E6 = 1e6;
 
     /// @notice Maximum LP fee the hook can charge. Pool.swap combines the LP fee with the protocol fee.
     ///         Hook fee of 999_999 compounds to 1e6 for any nonzero protocol fee, whereas 999_998 hits

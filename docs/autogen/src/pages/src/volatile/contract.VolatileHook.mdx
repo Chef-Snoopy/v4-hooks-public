@@ -5,7 +5,7 @@ description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm);
 
 # VolatileHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/VolatileHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/VolatileHook.sol)
 
 **Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatileHook](/src/volatile/interfaces/interface.IVolatileHook)
 
@@ -47,12 +47,6 @@ constructor(IPoolManager _manager) BaseDynamicFeeHook(_manager);
 
 Initializes a pool on the PoolManager and sets its fee config.
 
-<i>
-
-Restricted to POOL_INITIALIZER_ROLE. Reverts MustUseDynamicFee or InvalidHookAddress.
-
-</i>
-
 ```solidity
 function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, VolatileFeeConfig calldata feeConfiguration)
         external
@@ -74,43 +68,6 @@ function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, Volatile
 | ---- | ---- | ----------- |
 | tick | `int24` | Resulting tick |
 
-<a id="_beforeswap-address-poolkey-swapparams-bytes"></a>
-
-### _beforeSwap
-
-Computes the swap's dynamic fee and overrides it via the v4 fee flag.
-
-<i>
-
-The first swap of a block persists the advanced top-of-block state; every swap then
-prices via `_getFee`.
-
-</i>
-
-```solidity
-function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
-        internal
-        override
-        returns (bytes4, BeforeSwapDelta, uint24);
-```
-
-**Parameters**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _ | `address` |  |
-| key | `PoolKey` |  |
-| params | `SwapParams` |  |
-| _ | `bytes` |  |
-
-**Returns**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| &lt;none&gt; | `bytes4` |  |
-| &lt;none&gt; | `BeforeSwapDelta` |  |
-| &lt;none&gt; | `uint24` |  |
-
 <a id="getfee-poolkey"></a>
 
 ### getFee
@@ -119,7 +76,8 @@ The LP fee a swap would be charged this block, per direction.
 
 <i>
 
-Previews the fee the next swap would pay, reverts if the pool is not initialized
+The returned fee MUST be size-independent: it does not depend on the swap amount.
+A hook whose fee depends on swap size MUST revert here instead of returning a misleading value
 
 </i>
 
@@ -139,6 +97,36 @@ function getFee(PoolKey calldata key) external view returns (uint24 feeE6ZeroFor
 | ---- | ---- | ----------- |
 | feeE6ZeroForOne | `uint24` | The fee for a zeroForOne swap this block |
 | feeE6OneForZero | `uint24` | The fee for a oneForZero swap this block |
+
+<a id="_beforeswap-address-poolkey-swapparams-bytes"></a>
+
+### _beforeSwap
+
+Computes the swap's dynamic fee and overrides it via the v4 fee flag
+
+```solidity
+function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
+        internal
+        override
+        returns (bytes4 selector, BeforeSwapDelta delta, uint24 lpFeeOverride);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _ | `address` |  |
+| key | `PoolKey` | Pool key of the pool that a swap will be made against |
+| params | `SwapParams` | Uni V4 swap parameters |
+| _ | `bytes` |  |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| selector | `bytes4` | Always IHooks.beforeSwap selector |
+| delta | `BeforeSwapDelta` | Always zero for this hook |
+| lpFeeOverride | `uint24` | Fee for this swap direction with the override flag set |
 
 <a id="_loadtopofblockstate-poolid"></a>
 
@@ -221,11 +209,11 @@ function _toFeeUint24(uint256 feeE6) private pure returns (uint24);
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint256` |  |
+| feeE6 | `uint256` | Unclamped fee |
 
 **Returns**
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| &lt;none&gt; | `uint24` |  |
+| &lt;none&gt; | `uint24` | Fee clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6 |
 

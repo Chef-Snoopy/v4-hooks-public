@@ -15,9 +15,6 @@ import {BlockNumberish} from "@uniswap/blocknumberish/src/BlockNumberish.sol";
 /// @title VolatileFeeConfiguration
 /// @notice Per-pool volatile fee config and state, managed by the config manager.
 abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolatileFeeConfiguration {
-    /// @notice Scalar for E6 precision (1e6 = 100%)
-    uint256 internal constant ONE_E6 = 1e6;
-
     /// @custom:storage-location erc7201:uniswap.storage.VolatileFeeConfiguration
     struct VolatileFeeConfigurationStorage {
         /// @notice Per-pool config + state
@@ -29,6 +26,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         0x5d4cd891dc52dbf2064bf3b556cd164a438eebc4f9a9ba71ffb5a8f1380e1e00;
 
     /// @notice Accessor for this contract's ERC-7201 namespaced storage
+    /// @return $ Storage pointer to the namespaced slot
     function _getVolatileFeeConfigurationStorage() internal pure returns (VolatileFeeConfigurationStorage storage $) {
         assembly ("memory-safe") {
             $.slot := VOLATILE_FEE_CONFIGURATION_STORAGE_LOCATION
@@ -60,6 +58,14 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
 
     /// @notice Fee config for a pool.
     /// @param poolId Pool to query
+    /// @return restingSpreadE6 Permanent pie: ask + bid fee
+    /// @return backrunCaptureFractionE6 LP share of backrun profit
+    /// @return midFadeRateE6 Continuing-fee growth rate per unit move
+    /// @return maxMidFadeE6 Cap on the continuing fade
+    /// @return skewRateE6 Baseline lean per unit of price impact
+    /// @return maxSkewStepE6 Max skew change per block
+    /// @return maxSkewE6 Skew ceiling
+    /// @return backrunThresholdE6 Min price impact that arms the backrun charge
     function feeConfig(PoolId poolId)
         public
         view
@@ -89,6 +95,11 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
 
     /// @notice Fee state for a pool.
     /// @param poolId Pool to query
+    /// @return blockNumber Block of the last update
+    /// @return sqrtPriceTopX96 Block-open sqrt price; 0 after a config write until the first swap
+    /// @return askPermFeeE6 Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6
+    /// @return askBaselineFeeE6 Ask-side baseline this block
+    /// @return bidBaselineFeeE6 Bid-side baseline this block
     function feeState(PoolId poolId)
         public
         view
@@ -125,7 +136,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         // Each side's fee is capped at MAX_HOOK_FEE_E6, so the pie cannot exceed two ceilings.
         if (rs > 2 * VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert RestingSpreadTooLarge(_feeConfig.restingSpreadE6);
         // The pool cannot capture more than 100% of the price move.
-        if (_feeConfig.backrunCaptureFractionE6 > ONE_E6) {
+        if (_feeConfig.backrunCaptureFractionE6 > VolatileFeeCalculation.ONE_E6) {
             revert BackrunCaptureFractionTooLarge(_feeConfig.backrunCaptureFractionE6);
         }
         // A skew ceiling above the resting spread would let one side's fee exceed the whole spread.
@@ -167,8 +178,10 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @notice Reverts PoolNotInitialized unless the pool has a stored config.
     /// @param _poolId Pool to check
     function _checkPoolInitialized(PoolId _poolId) internal view {
-        // restingSpreadE6 == 0 only before the pool's first _updateFeeConfig call, which forbids a
-        // zero resting spread on every write afterward.
+        /// @dev Config is only ever seeded by the hook's pool-initialization entrypoint, which enforces
+        ///      the hook address and dynamic fee and initializes the pool on the PoolManager in the same
+        ///      call. A nonzero reference price (validated nonzero on every write) therefore proves the
+        ///      pool exists, uses this hook, and has a dynamic fee.
         if (_getVolatileFeeConfigurationStorage().hookState[_poolId].restingSpreadE6 == 0) {
             revert IDynamicFeeHook.PoolNotInitialized(_poolId);
         }

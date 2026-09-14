@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -22,8 +22,10 @@ intermediates in priceImpact round down because a smaller ratio means a larger m
 
 ### ONE_E6
 
+1e6 is 100% in pips format
+
 ```solidity
-uint256 internal constant ONE_E6 = 1e6;
+uint256 constant ONE_E6 = 1e6;
 ```
 
 ### MAX_HOOK_FEE_E6

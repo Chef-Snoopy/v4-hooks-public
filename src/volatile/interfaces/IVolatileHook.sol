@@ -22,7 +22,6 @@ interface IVolatileHook is IDynamicFeeHook {
     event PoolInitialized(PoolKey indexed poolKey, uint160 sqrtPriceX96, VolatileFeeConfig feeConfig);
 
     /// @notice Initializes a pool on the PoolManager and sets its fee config.
-    /// @dev Restricted to POOL_INITIALIZER_ROLE. Reverts MustUseDynamicFee or InvalidHookAddress.
     /// @param poolKey Pool key; fee must be the dynamic-fee sentinel and hooks must be this contract
     /// @param sqrtPriceX96 Initial sqrt price
     /// @param feeConfig Fee config to seed for the pool

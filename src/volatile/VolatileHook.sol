@@ -47,18 +47,33 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         emit PoolInitialized(poolKey, sqrtPriceX96, feeConfiguration);
     }
 
-    /// @notice Computes the swap's dynamic fee and overrides it via the v4 fee flag.
-    /// @dev The first swap of a block persists the advanced top-of-block state; every swap then
-    ///      prices via `_getFee`.
+    /// @inheritdoc IDynamicFeeHook
+    function getFee(PoolKey calldata key) external view returns (uint24 feeE6ZeroForOne, uint24 feeE6OneForZero) {
+        PoolId poolId = key.toId();
+        _checkPoolInitialized(poolId);
+
+        (VolatileHookState memory poolState, uint160 currentSqrtPriceX96,) = _loadTopOfBlockState(poolId);
+
+        feeE6ZeroForOne = _getFee(poolState, currentSqrtPriceX96, true);
+        feeE6OneForZero = _getFee(poolState, currentSqrtPriceX96, false);
+    }
+
+    /// @notice Computes the swap's dynamic fee and overrides it via the v4 fee flag
+    /// @param key Pool key of the pool that a swap will be made against
+    /// @param params Uni V4 swap parameters
+    /// @return selector Always IHooks.beforeSwap selector
+    /// @return delta Always zero for this hook
+    /// @return lpFeeOverride Fee for this swap direction with the override flag set
     function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
         internal
         override
-        returns (bytes4, BeforeSwapDelta, uint24)
+        returns (bytes4 selector, BeforeSwapDelta delta, uint24 lpFeeOverride)
     {
         PoolId poolId = key.toId();
         (VolatileHookState memory poolState, uint160 currentSqrtPriceX96, bool isNewBlock) =
             _loadTopOfBlockState(poolId);
 
+        // Persists top of block state if this is the first swap of a new block.
         if (isNewBlock) {
             VolatileHookState storage stored = _getVolatileFeeConfigurationStorage().hookState[poolId];
             stored.blockNumber = poolState.blockNumber;
@@ -70,18 +85,6 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
 
         uint24 feeE6 = _getFee(poolState, currentSqrtPriceX96, params.zeroForOne);
         return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, feeE6 | LPFeeLibrary.OVERRIDE_FEE_FLAG);
-    }
-
-    /// @inheritdoc IDynamicFeeHook
-    /// @dev Previews the fee the next swap would pay, reverts if the pool is not initialized
-    function getFee(PoolKey calldata key) external view returns (uint24 feeE6ZeroForOne, uint24 feeE6OneForZero) {
-        PoolId poolId = key.toId();
-        _checkPoolInitialized(poolId);
-
-        (VolatileHookState memory poolState, uint160 currentSqrtPriceX96,) = _loadTopOfBlockState(poolId);
-
-        feeE6ZeroForOne = _getFee(poolState, currentSqrtPriceX96, true);
-        feeE6OneForZero = _getFee(poolState, currentSqrtPriceX96, false);
     }
 
     /// @notice Loads a pool's state, advancing it to this block's baselines in memory without writing.
@@ -139,22 +142,26 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         // A sell (zeroForOne) pays the bid baseline, a buy pays the ask baseline.
         uint24 baselineFeeE6 = _zeroForOne ? _poolState.bidBaselineFeeE6 : _poolState.askBaselineFeeE6;
 
-        // Trading against the displacement is a backrun.
         if (_zeroForOne == displacedUp) {
+            // Trading against the displacement is a backrun.
             return _toFeeUint24(
                 VolatileFeeCalculation.midBlockBackrunFee(
                     baselineFeeE6, displacementFromTopE6, _poolState.backrunCaptureFractionE6
                 )
             );
+        } else {
+            // Trading in the same direction the displacement is a continuation, we apply a trend fee
+            return _toFeeUint24(
+                VolatileFeeCalculation.midBlockContinuingFee(
+                    baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
+                )
+            );
         }
-        return _toFeeUint24(
-            VolatileFeeCalculation.midBlockContinuingFee(
-                baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
-            )
-        );
     }
 
     /// @notice Clamps a fee to MAX_HOOK_FEE_E6.
+    /// @param feeE6 Unclamped fee
+    /// @return Fee clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6
     function _toFeeUint24(uint256 feeE6) private pure returns (uint24) {
         return uint24(feeE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6 ? VolatileFeeCalculation.MAX_HOOK_FEE_E6 : feeE6);
     }

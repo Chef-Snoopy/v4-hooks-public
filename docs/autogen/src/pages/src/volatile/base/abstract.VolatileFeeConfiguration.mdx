@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d695b82e1989fd37810331b03e453e131404c179/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -14,14 +14,6 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 Per-pool volatile fee config and state, managed by the config manager.
 
 ## Constants
-
-### ONE_E6
-
-Scalar for E6 precision (1e6 = 100%)
-
-```solidity
-uint256 internal constant ONE_E6 = 1e6;
-```
 
 ### VOLATILE_FEE_CONFIGURATION_STORAGE_LOCATION
 
@@ -52,7 +44,7 @@ function _getVolatileFeeConfigurationStorage() internal pure returns (VolatileFe
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| $ | `VolatileFeeConfigurationStorage` |  |
+| $ | `VolatileFeeConfigurationStorage` | Storage pointer to the namespaced slot |
 
 <a id="updatefeeconfig-poolid-volatilefeeconfig"></a>
 
@@ -124,14 +116,14 @@ function feeConfig(PoolId poolId)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| restingSpreadE6 | `uint24` |  |
-| backrunCaptureFractionE6 | `uint24` |  |
-| midFadeRateE6 | `uint24` |  |
-| maxMidFadeE6 | `uint24` |  |
-| skewRateE6 | `uint24` |  |
-| maxSkewStepE6 | `uint24` |  |
-| maxSkewE6 | `uint24` |  |
-| backrunThresholdE6 | `uint24` |  |
+| restingSpreadE6 | `uint24` | Permanent pie: ask + bid fee |
+| backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
+| midFadeRateE6 | `uint24` | Continuing-fee growth rate per unit move |
+| maxMidFadeE6 | `uint24` | Cap on the continuing fade |
+| skewRateE6 | `uint24` | Baseline lean per unit of price impact |
+| maxSkewStepE6 | `uint24` | Max skew change per block |
+| maxSkewE6 | `uint24` | Skew ceiling |
+| backrunThresholdE6 | `uint24` | Min price impact that arms the backrun charge |
 
 <a id="feestate-poolid"></a>
 
@@ -162,11 +154,11 @@ function feeState(PoolId poolId)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| blockNumber | `uint48` |  |
-| sqrtPriceTopX96 | `uint160` |  |
-| askPermFeeE6 | `uint24` |  |
-| askBaselineFeeE6 | `uint24` |  |
-| bidBaselineFeeE6 | `uint24` |  |
+| blockNumber | `uint48` | Block of the last update |
+| sqrtPriceTopX96 | `uint160` | Block-open sqrt price; 0 after a config write until the first swap |
+| askPermFeeE6 | `uint24` | Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6 |
+| askBaselineFeeE6 | `uint24` | Ask-side baseline this block |
+| bidBaselineFeeE6 | `uint24` | Bid-side baseline this block |
 
 <a id="_updatefeeconfig-poolid-volatilefeeconfig"></a>
 
