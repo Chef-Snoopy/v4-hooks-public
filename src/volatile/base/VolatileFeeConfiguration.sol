@@ -97,8 +97,8 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
 
     /// @notice Fee state for a pool.
     /// @param poolId Pool to query
-    /// @return blockNumber Block of the last update
-    /// @return sqrtPriceTopX96 Block-open sqrt price; 0 after a config write until the first swap
+    /// @return blockNumber Block of the last update. 0 if no swaps since last config update
+    /// @return sqrtPriceTopX96 Block-open sqrt price. 0 if no swaps since last config update
     /// @return askPermFeeE6 Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6
     /// @return tempFeeE6 One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee
     /// @return tempOnBid True if tempFeeE6 is on the bid side, false if on the ask side
@@ -112,10 +112,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     }
 
     /// @notice Validates the config, stores it, and resets the pool's fee state to neutral.
-    /// @dev Bounds hold askPermFeeE6 in [restingSpreadE6 - maxSkewE6, maxSkewE6]; the reset to
-    ///      restingSpreadE6 / 2 re-establishes it on every write, and clearing the temp fee puts both
-    ///      baselines at their permanent fees. Also resets sqrtPriceTopX96 to 0, so price impact is
-    ///      treated as 0 until the first swap.
+    /// @dev Resets block state, skew, permanent fee and temporary fee state
     /// @param _poolId Pool to configure
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
@@ -128,7 +125,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
         $.feeConfig[_poolId] = _feeConfig;
         $.feeState[_poolId] = VolatileFeeState({
-            blockNumber: uint40(_getBlockNumberish()),
+            blockNumber: 0,
             sqrtPriceTopX96: 0,
             askPermFeeE6: _feeConfig.restingSpreadE6 / 2,
             tempFeeE6: 0,

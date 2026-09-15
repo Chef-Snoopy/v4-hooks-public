@@ -24,7 +24,7 @@ struct VolatileFeeConfig {
 ///      block's price impact.
 struct VolatileFeeState {
     uint40 blockNumber; // block of the last update
-    uint160 sqrtPriceTopX96; // block-open price; 0 after a config write until the first swap
+    uint160 sqrtPriceTopX96; // block-open price, reset on last update
     uint24 askPermFeeE6; // permanent ask-side fee (sticky skew)
     uint24 tempFeeE6; // one-block backrun charge on the side named by tempOnBid
     bool tempOnBid; // true: tempFeeE6 is on the bid side; false: on the ask side

@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/5da2cfa8bee25ed4c75eb6e4295795254f90cf6c/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -148,8 +148,8 @@ function feeState(PoolId poolId)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| blockNumber | `uint40` | Block of the last update |
-| sqrtPriceTopX96 | `uint160` | Block-open sqrt price; 0 after a config write until the first swap |
+| blockNumber | `uint40` | Block of the last update. 0 if no swaps since last config update |
+| sqrtPriceTopX96 | `uint160` | Block-open sqrt price. 0 if no swaps since last config update |
 | askPermFeeE6 | `uint24` | Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6 |
 | tempFeeE6 | `uint24` | One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee |
 | tempOnBid | `bool` | True if tempFeeE6 is on the bid side, false if on the ask side |
@@ -162,10 +162,7 @@ Validates the config, stores it, and resets the pool's fee state to neutral.
 
 <i>
 
-Bounds hold askPermFeeE6 in [restingSpreadE6 - maxSkewE6, maxSkewE6]; the reset to
-restingSpreadE6 / 2 re-establishes it on every write, and clearing the temp fee puts both
-baselines at their permanent fees. Also resets sqrtPriceTopX96 to 0, so price impact is
-treated as 0 until the first swap.
+Resets block state, skew, permanent fee and temporary fee state
 
 </i>
 

@@ -111,19 +111,15 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         (currentSqrtPriceX96,,,) = poolManager.getSlot0(_poolId);
         uint40 currentBlock = uint40(_getBlockNumberish());
 
-        // sqrtPriceTopX96 == 0 is the post-config-reset sentinel: no open yet, so open now.
-        isNewBlock = currentBlock > poolState.blockNumber || poolState.sqrtPriceTopX96 == 0;
-        if (!isNewBlock) return (poolState, config, currentSqrtPriceX96, false);
+        // If the stored pool state is fresh, return it
+        if (currentBlock <= poolState.blockNumber) return (poolState, config, currentSqrtPriceX96, false);
 
-        // Price impact: this block's open vs. the previous block's open. No previous open ⇒ zero
-        // impact, and at zero impact newPermAndTempFee leaves the reset state unchanged, so skip both.
-        if (poolState.sqrtPriceTopX96 != 0) {
-            (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
-                VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
-            (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
-                config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
-            );
-        }
+        // Otherwise update the cached pool and fee states
+        (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
+            VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
+        (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
+            config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
+        );
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
     }
