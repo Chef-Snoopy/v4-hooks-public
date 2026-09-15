@@ -92,8 +92,7 @@ library VolatileFeeCalculation {
         uint256 rawFeeE6 = uint256(baselineFeeE6)
             + FixedPointMathLib.mulDivUp(backrunCaptureFractionE6, displacementFromTopE6, ONE_E6);
 
-        // Clamp to MAX_HOOK_FEE_E6
-        feeE6 = uint24(rawFeeE6 > MAX_HOOK_FEE_E6 ? MAX_HOOK_FEE_E6 : rawFeeE6);
+        feeE6 = clampToMaxHookFeeE6(rawFeeE6);
     }
 
     /// @notice Mid-block fee for a swap pushing further in the price-impact direction (the continuing side).
@@ -101,7 +100,7 @@ library VolatileFeeCalculation {
     /// @param displacementFromTopE6 Displacement from the block open (>= 0)
     /// @param midFadeRateE6 Continuing-fee growth rate per unit move
     /// @param maxMidFadeE6 Continuing-side fee cap
-    /// @return feeE6 Mid-block fee
+    /// @return feeE6 Mid-block fee, clamped to MAX_HOOK_FEE_E6
     function midBlockContinuingFee(
         uint24 baselineFeeE6,
         uint256 displacementFromTopE6,
@@ -113,8 +112,7 @@ library VolatileFeeCalculation {
         uint256 fadeE6 = FixedPointMathLib.mulDivUp(midFadeRateE6, displacementFromTopE6, ONE_E6);
         if (fadeE6 > maxMidFadeE6) fadeE6 = maxMidFadeE6;
 
-        // Cast is safe because of the clamp to a u24 above
-        feeE6 = baselineFeeE6 + uint24(fadeE6);
+        feeE6 = clampToMaxHookFeeE6(uint256(baselineFeeE6) + fadeE6);
     }
 
     /// @notice Temporary (one-block) fee on the backrun side at the top of a block.
@@ -141,8 +139,7 @@ library VolatileFeeCalculation {
             uint256 backRunFee =
                 FixedPointMathLib.mulDivUp(uint256(backrunCaptureFractionE6), uint256(blockPriceImpactE6), ONE_E6);
 
-            // Clamp to MAX_HOOK_FEE_E6
-            tempFeeE6 += uint24(backRunFee > MAX_HOOK_FEE_E6 ? MAX_HOOK_FEE_E6 : backRunFee);
+            tempFeeE6 = clampToMaxHookFeeE6(uint256(tempFeeE6) + backRunFee);
         }
     }
 
@@ -152,8 +149,8 @@ library VolatileFeeCalculation {
     /// @param blockPriceImpactE6 Price impact magnitude
     /// @param blockPriceImpactUp True if price moved up since the previous block
     /// @return newAskPermFeeE6 New permanent ask-side fee to store
-    /// @return askBaselineFeeE6 Ask-side baseline for the block
-    /// @return bidBaselineFeeE6 Bid-side baseline for the block
+    /// @return askBaselineFeeE6 Ask-side baseline for the block, clamped to MAX_HOOK_FEE_E6
+    /// @return bidBaselineFeeE6 Bid-side baseline for the block, clamped to MAX_HOOK_FEE_E6
     function newPermAndTempFee(
         VolatileHookState memory hookState,
         uint24 oldAskPermFeeE6,
@@ -171,8 +168,10 @@ library VolatileFeeCalculation {
                 hookState.backrunCaptureFractionE6,
                 hookState.backrunThresholdE6
             );
+            // The perm side is bounded by maxSkewE6 <= MAX_HOOK_FEE_E6 at config time; only the temp side
+            // can exceed the ceiling.
             askBaselineFeeE6 = newAskPermFeeE6;
-            bidBaselineFeeE6 = (hookState.restingSpreadE6 - newAskPermFeeE6) + bidTempFee;
+            bidBaselineFeeE6 = clampToMaxHookFeeE6(uint256(hookState.restingSpreadE6 - newAskPermFeeE6) + bidTempFee);
         } else {
             uint24 oldBidPermFee = hookState.restingSpreadE6 - oldAskPermFeeE6;
             uint24 newBidPermFee = newPermanentFee(
@@ -187,7 +186,14 @@ library VolatileFeeCalculation {
             );
             newAskPermFeeE6 = hookState.restingSpreadE6 - newBidPermFee;
             bidBaselineFeeE6 = newBidPermFee;
-            askBaselineFeeE6 = (hookState.restingSpreadE6 - newBidPermFee) + askTempFee;
+            askBaselineFeeE6 = clampToMaxHookFeeE6(uint256(newAskPermFeeE6) + askTempFee);
         }
+    }
+
+    /// @notice Clamps a fee to MAX_HOOK_FEE_E6.
+    /// @param feeE6 Unclamped fee
+    /// @return Fee clamped to MAX_HOOK_FEE_E6
+    function clampToMaxHookFeeE6(uint256 feeE6) internal pure returns (uint24) {
+        return uint24(feeE6 > MAX_HOOK_FEE_E6 ? MAX_HOOK_FEE_E6 : feeE6);
     }
 }

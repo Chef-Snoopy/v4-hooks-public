@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -200,6 +200,95 @@ function _checkPoolInitialized(PoolId _poolId) internal view;
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _poolId | `PoolId` | Pool to check |
+
+<a id="_validaterestingspreade6-uint24"></a>
+
+### _validateRestingSpreadE6
+
+Validates the resting spread, the permanent ask + bid fee pie
+
+```solidity
+function _validateRestingSpreadE6(uint24 _restingSpreadE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _restingSpreadE6 | `uint24` | The resting spread to validate |
+
+<a id="_validatebackruncapturefractione6-uint24"></a>
+
+### _validateBackrunCaptureFractionE6
+
+Validates the backrun capture fraction
+
+```solidity
+function _validateBackrunCaptureFractionE6(uint24 _backrunCaptureFractionE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _backrunCaptureFractionE6 | `uint24` | The capture fraction to validate |
+
+<a id="_validatemaxskewe6-uint24-uint24"></a>
+
+### _validateMaxSkewE6
+
+Validates the skew ceiling against the resting spread and the fee ceiling
+
+```solidity
+function _validateMaxSkewE6(uint24 _maxSkewE6, uint24 _restingSpreadE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _maxSkewE6 | `uint24` | The skew ceiling to validate |
+| _restingSpreadE6 | `uint24` | The resting spread the ceiling must fit inside |
+
+<a id="_validatemaxskewstepe6-uint24-uint24-uint24"></a>
+
+### _validateMaxSkewStepE6
+
+Validates the per-block skew step against the width of the permanent-fee band
+
+<i>
+
+Call after _validateMaxSkewE6, which guarantees 2 * maxSkew >= restingSpread
+
+</i>
+
+```solidity
+function _validateMaxSkewStepE6(uint24 _maxSkewStepE6, uint24 _maxSkewE6, uint24 _restingSpreadE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _maxSkewStepE6 | `uint24` | The step cap to validate |
+| _maxSkewE6 | `uint24` | The validated skew ceiling |
+| _restingSpreadE6 | `uint24` | The validated resting spread |
+
+<a id="_validatemaxmidfadee6-uint24"></a>
+
+### _validateMaxMidFadeE6
+
+Validates the continuing-fade cap against the fee ceiling
+
+```solidity
+function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _maxMidFadeE6 | `uint24` | The fade cap to validate |
 
 ## Structs
 

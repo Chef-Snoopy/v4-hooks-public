@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d73b315559a4ee7a23970fc71b175a27b8f69694/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -162,7 +162,7 @@ function midBlockContinuingFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint24` | Mid-block fee |
+| feeE6 | `uint24` | Mid-block fee, clamped to MAX_HOOK_FEE_E6 |
 
 <a id="temporarybackrunfee-uint24-uint24-uint256-uint24-uint24"></a>
 
@@ -225,6 +225,28 @@ function newPermAndTempFee(
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAskPermFeeE6 | `uint24` | New permanent ask-side fee to store |
-| askBaselineFeeE6 | `uint24` | Ask-side baseline for the block |
-| bidBaselineFeeE6 | `uint24` | Bid-side baseline for the block |
+| askBaselineFeeE6 | `uint24` | Ask-side baseline for the block, clamped to MAX_HOOK_FEE_E6 |
+| bidBaselineFeeE6 | `uint24` | Bid-side baseline for the block, clamped to MAX_HOOK_FEE_E6 |
+
+<a id="clamptomaxhookfeee6-uint256"></a>
+
+### clampToMaxHookFeeE6
+
+Clamps a fee to MAX_HOOK_FEE_E6.
+
+```solidity
+function clampToMaxHookFeeE6(uint256 feeE6) internal pure returns (uint24);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| feeE6 | `uint256` | Unclamped fee |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| &lt;none&gt; | `uint24` | Fee clamped to MAX_HOOK_FEE_E6 |
 

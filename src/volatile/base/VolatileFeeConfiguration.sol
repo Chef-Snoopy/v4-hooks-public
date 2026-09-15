@@ -129,33 +129,11 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @param _poolId Pool to configure
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
-        uint256 rs = _feeConfig.restingSpreadE6;
-        uint256 maxSkew = _feeConfig.maxSkewE6;
-        // restingSpreadE6 == 0 marks an uninitialized pool.
-        if (rs == 0) revert RestingSpreadCannotBeZero();
-        // Each side's fee is capped at MAX_HOOK_FEE_E6, so the pie cannot exceed two ceilings.
-        if (rs > 2 * VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert RestingSpreadTooLarge(_feeConfig.restingSpreadE6);
-        // The pool cannot capture more than 100% of the price move.
-        if (_feeConfig.backrunCaptureFractionE6 > VolatileFeeCalculation.ONE_E6) {
-            revert BackrunCaptureFractionTooLarge(_feeConfig.backrunCaptureFractionE6);
-        }
-        // A skew ceiling above the resting spread would let one side's fee exceed the whole spread.
-        if (maxSkew > rs) revert MaxSkewTooLarge(_feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
-        // A ceiling below the neutral center rs / 2 would clamp the leaning side down, underflowing
-        // newPermFee - oldPermFee in temporaryBackrunFee.
-        if (2 * maxSkew < rs) revert MaxSkewTooSmall(_feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
-        // A perm fee can reach maxSkew, so anything above the fee ceiling is skew band the clamp
-        // silently removes.
-        if (maxSkew > VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert MaxSkewAboveMaxHookFee(_feeConfig.maxSkewE6);
-        // Width of the perm-fee band; larger steps clamp to the same result.
-        if (_feeConfig.maxSkewStepE6 > 2 * maxSkew - rs) {
-            revert MaxSkewStepTooLarge(_feeConfig.maxSkewStepE6, _feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
-        }
-        // baseline + fade is a uint24 add with baseline up to MAX_HOOK_FEE_E6; a fade above ~15.7e6
-        // reverts the swap.
-        if (_feeConfig.maxMidFadeE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6) {
-            revert MaxMidFadeTooLarge(_feeConfig.maxMidFadeE6);
-        }
+        _validateRestingSpreadE6(_feeConfig.restingSpreadE6);
+        _validateBackrunCaptureFractionE6(_feeConfig.backrunCaptureFractionE6);
+        _validateMaxSkewE6(_feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
+        _validateMaxSkewStepE6(_feeConfig.maxSkewStepE6, _feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
+        _validateMaxMidFadeE6(_feeConfig.maxMidFadeE6);
 
         uint24 halfE6 = _feeConfig.restingSpreadE6 / 2;
         _getVolatileFeeConfigurationStorage().hookState[_poolId] = VolatileHookState({
@@ -185,5 +163,58 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         if (_getVolatileFeeConfigurationStorage().hookState[_poolId].restingSpreadE6 == 0) {
             revert IDynamicFeeHook.PoolNotInitialized(_poolId);
         }
+    }
+
+    /// @notice Validates the resting spread, the permanent ask + bid fee pie
+    /// @param _restingSpreadE6 The resting spread to validate
+    function _validateRestingSpreadE6(uint24 _restingSpreadE6) internal pure {
+        // restingSpreadE6 == 0 marks an uninitialized pool.
+        if (_restingSpreadE6 == 0) revert RestingSpreadCannotBeZero();
+        // Each side's fee is capped at MAX_HOOK_FEE_E6, so the pie cannot exceed two ceilings.
+        if (_restingSpreadE6 > 2 * VolatileFeeCalculation.MAX_HOOK_FEE_E6) {
+            revert RestingSpreadTooLarge(_restingSpreadE6);
+        }
+    }
+
+    /// @notice Validates the backrun capture fraction
+    /// @param _backrunCaptureFractionE6 The capture fraction to validate
+    function _validateBackrunCaptureFractionE6(uint24 _backrunCaptureFractionE6) internal pure {
+        // The pool cannot capture more than 100% of the price move.
+        if (_backrunCaptureFractionE6 > VolatileFeeCalculation.ONE_E6) {
+            revert BackrunCaptureFractionTooLarge(_backrunCaptureFractionE6);
+        }
+    }
+
+    /// @notice Validates the skew ceiling against the resting spread and the fee ceiling
+    /// @param _maxSkewE6 The skew ceiling to validate
+    /// @param _restingSpreadE6 The resting spread the ceiling must fit inside
+    function _validateMaxSkewE6(uint24 _maxSkewE6, uint24 _restingSpreadE6) internal pure {
+        // A skew ceiling above the resting spread would let one side's fee exceed the whole spread.
+        if (_maxSkewE6 > _restingSpreadE6) revert MaxSkewTooLarge(_maxSkewE6, _restingSpreadE6);
+        // A ceiling below the neutral center rs / 2 would clamp the leaning side down, underflowing
+        // newPermFee - oldPermFee in temporaryBackrunFee.
+        if (2 * uint256(_maxSkewE6) < _restingSpreadE6) revert MaxSkewTooSmall(_maxSkewE6, _restingSpreadE6);
+        // A perm fee can reach maxSkew, so anything above the fee ceiling is skew band the clamp
+        // silently removes.
+        if (_maxSkewE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert MaxSkewAboveMaxHookFee(_maxSkewE6);
+    }
+
+    /// @notice Validates the per-block skew step against the width of the permanent-fee band
+    /// @dev Call after _validateMaxSkewE6, which guarantees 2 * maxSkew >= restingSpread
+    /// @param _maxSkewStepE6 The step cap to validate
+    /// @param _maxSkewE6 The validated skew ceiling
+    /// @param _restingSpreadE6 The validated resting spread
+    function _validateMaxSkewStepE6(uint24 _maxSkewStepE6, uint24 _maxSkewE6, uint24 _restingSpreadE6) internal pure {
+        // Width of the perm-fee band; larger steps clamp to the same result.
+        if (_maxSkewStepE6 > 2 * uint256(_maxSkewE6) - _restingSpreadE6) {
+            revert MaxSkewStepTooLarge(_maxSkewStepE6, _maxSkewE6, _restingSpreadE6);
+        }
+    }
+
+    /// @notice Validates the continuing-fade cap against the fee ceiling
+    /// @param _maxMidFadeE6 The fade cap to validate
+    function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure {
+        // The charged fee is clamped at MAX_HOOK_FEE_E6, so a larger fade cap is dead band.
+        if (_maxMidFadeE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert MaxMidFadeTooLarge(_maxMidFadeE6);
     }
 }

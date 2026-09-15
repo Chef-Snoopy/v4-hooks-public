@@ -120,8 +120,8 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         );
 
         poolState.askPermFeeE6 = newAskPerm;
-        poolState.askBaselineFeeE6 = _toFeeUint24(askBaseline);
-        poolState.bidBaselineFeeE6 = _toFeeUint24(bidBaseline);
+        poolState.askBaselineFeeE6 = askBaseline;
+        poolState.bidBaselineFeeE6 = bidBaseline;
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
     }
@@ -149,18 +149,9 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
             );
         } else {
             // Trading in the same direction the displacement is a continuation, we apply a trend fee
-            return _toFeeUint24(
-                VolatileFeeCalculation.midBlockContinuingFee(
-                    baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
-                )
+            return VolatileFeeCalculation.midBlockContinuingFee(
+                baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
             );
         }
-    }
-
-    /// @notice Clamps a fee to MAX_HOOK_FEE_E6.
-    /// @param feeE6 Unclamped fee
-    /// @return Fee clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6
-    function _toFeeUint24(uint256 feeE6) private pure returns (uint24) {
-        return uint24(feeE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6 ? VolatileFeeCalculation.MAX_HOOK_FEE_E6 : feeE6);
     }
 }

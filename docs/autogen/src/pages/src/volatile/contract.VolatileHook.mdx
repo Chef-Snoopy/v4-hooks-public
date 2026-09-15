@@ -5,7 +5,7 @@ description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm);
 
 # VolatileHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d3086d3ad618e42dee52f017252f96657c36dd7a/src/volatile/VolatileHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/VolatileHook.sol)
 
 **Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatileHook](/src/volatile/interfaces/interface.IVolatileHook)
 
@@ -194,26 +194,4 @@ function _getFee(VolatileHookState memory _poolState, uint160 _currentSqrtPriceX
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | &lt;none&gt; | `uint24` | Fee for this direction, clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6 |
-
-<a id="_tofeeuint24-uint256"></a>
-
-### _toFeeUint24
-
-Clamps a fee to MAX_HOOK_FEE_E6.
-
-```solidity
-function _toFeeUint24(uint256 feeE6) private pure returns (uint24);
-```
-
-**Parameters**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| feeE6 | `uint256` | Unclamped fee |
-
-**Returns**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| &lt;none&gt; | `uint24` | Fee clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6 |
 
