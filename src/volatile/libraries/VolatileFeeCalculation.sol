@@ -78,16 +78,16 @@ library VolatileFeeCalculation {
         if (newPermFeeE6 > maxSkewE6) newPermFeeE6 = maxSkewE6;
     }
 
-    /// @notice Mid-block fee for a swap trading back toward the block open (the backrun side).
+    /// @notice Fee for a swap trading back toward the block open (the backrun side).
     /// @param baselineFeeE6 Block's baseline fee for this side
     /// @param displacementFromTopE6 Displacement from the block open (>= 0)
     /// @param backrunCaptureFractionE6 LP share of backrun profit
-    /// @return feeE6 Mid-block fee
-    function midBlockBackrunFee(uint24 baselineFeeE6, uint256 displacementFromTopE6, uint24 backrunCaptureFractionE6)
-        internal
-        pure
-        returns (uint24 feeE6)
-    {
+    /// @return feeE6 Fee, clamped to MAX_HOOK_FEE_E6
+    function displacementBackrunFee(
+        uint24 baselineFeeE6,
+        uint256 displacementFromTopE6,
+        uint24 backrunCaptureFractionE6
+    ) internal pure returns (uint24 feeE6) {
         // Calculate the backrun fee, proportional to the displacement from the block open, rounded up
         uint256 rawFeeE6 = uint256(baselineFeeE6)
             + FixedPointMathLib.mulDivUp(backrunCaptureFractionE6, displacementFromTopE6, ONE_E6);
@@ -95,13 +95,13 @@ library VolatileFeeCalculation {
         feeE6 = clampToMaxHookFeeE6(rawFeeE6);
     }
 
-    /// @notice Mid-block fee for a swap pushing further in the price-impact direction (the continuing side).
+    /// @notice Fee for a swap pushing further in the price-impact direction (the continuing side).
     /// @param baselineFeeE6 Block's baseline fee for this side
     /// @param displacementFromTopE6 Displacement from the block open (>= 0)
     /// @param midFadeRateE6 Continuing-fee growth rate per unit move
     /// @param maxMidFadeE6 Continuing-side fee cap
-    /// @return feeE6 Mid-block fee, clamped to MAX_HOOK_FEE_E6
-    function midBlockContinuingFee(
+    /// @return feeE6 Fee, clamped to MAX_HOOK_FEE_E6
+    function displacementContinuingFee(
         uint24 baselineFeeE6,
         uint256 displacementFromTopE6,
         uint24 midFadeRateE6,

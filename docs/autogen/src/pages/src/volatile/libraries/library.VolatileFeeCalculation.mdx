@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/4a9d18e39e2573eb144355aaadff86fbfccc12d9/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -107,17 +107,18 @@ function newPermanentFee(
 | ---- | ---- | ----------- |
 | newPermFeeE6 | `uint24` | New permanent fee for the leaning side |
 
-<a id="midblockbackrunfee-uint24-uint256-uint24"></a>
+<a id="displacementbackrunfee-uint24-uint256-uint24"></a>
 
-### midBlockBackrunFee
+### displacementBackrunFee
 
-Mid-block fee for a swap trading back toward the block open (the backrun side).
+Fee for a swap trading back toward the block open (the backrun side).
 
 ```solidity
-function midBlockBackrunFee(uint24 baselineFeeE6, uint256 displacementFromTopE6, uint24 backrunCaptureFractionE6)
-        internal
-        pure
-        returns (uint24 feeE6);
+function displacementBackrunFee(
+        uint24 baselineFeeE6,
+        uint256 displacementFromTopE6,
+        uint24 backrunCaptureFractionE6
+    ) internal pure returns (uint24 feeE6);
 ```
 
 **Parameters**
@@ -132,16 +133,16 @@ function midBlockBackrunFee(uint24 baselineFeeE6, uint256 displacementFromTopE6,
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint24` | Mid-block fee |
+| feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
 
-<a id="midblockcontinuingfee-uint24-uint256-uint24-uint24"></a>
+<a id="displacementcontinuingfee-uint24-uint256-uint24-uint24"></a>
 
-### midBlockContinuingFee
+### displacementContinuingFee
 
-Mid-block fee for a swap pushing further in the price-impact direction (the continuing side).
+Fee for a swap pushing further in the price-impact direction (the continuing side).
 
 ```solidity
-function midBlockContinuingFee(
+function displacementContinuingFee(
         uint24 baselineFeeE6,
         uint256 displacementFromTopE6,
         uint24 midFadeRateE6,
@@ -162,7 +163,7 @@ function midBlockContinuingFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint24` | Mid-block fee, clamped to MAX_HOOK_FEE_E6 |
+| feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
 
 <a id="temporarybackrunfee-uint24-uint24-uint256-uint24-uint24"></a>
 

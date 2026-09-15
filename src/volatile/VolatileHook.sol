@@ -144,12 +144,12 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
 
         if (_zeroForOne == displacedUp) {
             // Trading against the displacement is a backrun.
-            return VolatileFeeCalculation.midBlockBackrunFee(
+            return VolatileFeeCalculation.displacementBackrunFee(
                 baselineFeeE6, displacementFromTopE6, _poolState.backrunCaptureFractionE6
             );
         } else {
             // Trading in the same direction the displacement is a continuation, we apply a trend fee
-            return VolatileFeeCalculation.midBlockContinuingFee(
+            return VolatileFeeCalculation.displacementContinuingFee(
                 baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
             );
         }
