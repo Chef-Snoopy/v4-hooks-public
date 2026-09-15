@@ -113,13 +113,17 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
 
         // If the stored pool state is fresh, return it
         if (currentBlock <= poolState.blockNumber) return (poolState, config, currentSqrtPriceX96, false);
+        isNewBlock = true;
 
-        // Otherwise update the cached pool and fee states
-        (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
-            VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
-        (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
-            config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
-        );
+        // Otherwise, cache the cached pool state
+        // Update fee states only when there's a previous price to compare against
+        if (poolState.sqrtPriceTopX96 != 0) {
+            (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
+                VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
+            (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
+                config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
+            );
+        }
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
     }
