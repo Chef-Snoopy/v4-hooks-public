@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -135,13 +135,7 @@ Fee state for a pool.
 function feeState(PoolId poolId)
         public
         view
-        returns (
-            uint48 blockNumber,
-            uint160 sqrtPriceTopX96,
-            uint24 askPermFeeE6,
-            uint24 askBaselineFeeE6,
-            uint24 bidBaselineFeeE6
-        );
+        returns (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid);
 ```
 
 **Parameters**
@@ -154,11 +148,11 @@ function feeState(PoolId poolId)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| blockNumber | `uint48` | Block of the last update |
+| blockNumber | `uint40` | Block of the last update |
 | sqrtPriceTopX96 | `uint160` | Block-open sqrt price; 0 after a config write until the first swap |
 | askPermFeeE6 | `uint24` | Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6 |
-| askBaselineFeeE6 | `uint24` | Ask-side baseline this block |
-| bidBaselineFeeE6 | `uint24` | Bid-side baseline this block |
+| tempFeeE6 | `uint24` | One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee |
+| tempOnBid | `bool` | True if tempFeeE6 is on the bid side, false if on the ask side |
 
 <a id="_updatefeeconfig-poolid-volatilefeeconfig"></a>
 
@@ -169,8 +163,9 @@ Validates the config, stores it, and resets the pool's fee state to neutral.
 <i>
 
 Bounds hold askPermFeeE6 in [restingSpreadE6 - maxSkewE6, maxSkewE6]; the reset to
-restingSpreadE6 / 2 re-establishes it on every write.
-Also resets sqrtPriceTopX96 to 0, so price impact is treated as 0 until the first swap.
+restingSpreadE6 / 2 re-establishes it on every write, and clearing the temp fee puts both
+baselines at their permanent fees. Also resets sqrtPriceTopX96 to 0, so price impact is
+treated as 0 until the first swap.
 
 </i>
 
@@ -190,6 +185,15 @@ function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig)
 ### _checkPoolInitialized
 
 Reverts PoolNotInitialized unless the pool has a stored config.
+
+<i>
+
+Config is only ever seeded by the hook's pool-initialization entrypoint, which enforces
+the hook address and dynamic fee and initializes the pool on the PoolManager in the same
+call. A nonzero resting spread (validated nonzero on every write) therefore proves the
+pool exists, uses this hook, and has a dynamic fee.
+
+</i>
 
 ```solidity
 function _checkPoolInitialized(PoolId _poolId) internal view;
@@ -300,8 +304,10 @@ function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure;
 
 ```solidity
 struct VolatileFeeConfigurationStorage {
-        /// @notice Per-pool config + state
-        mapping(PoolId => VolatileHookState) hookState;
+        /// @dev The fee config for each pool
+        mapping(PoolId => VolatileFeeConfig) feeConfig;
+        /// @dev The fee state for each pool
+        mapping(PoolId => VolatileFeeState) feeState;
     }
 ```
 
@@ -309,5 +315,6 @@ struct VolatileFeeConfigurationStorage {
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| hookState | `mapping(PoolId => VolatileHookState)` |  |
+| feeConfig | `mapping(PoolId => VolatileFeeConfig)` |  |
+| feeState | `mapping(PoolId => VolatileFeeState)` |  |
 

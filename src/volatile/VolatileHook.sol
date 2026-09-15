@@ -6,7 +6,7 @@ import {VolatileFeeCalculation} from "./libraries/VolatileFeeCalculation.sol";
 import {IVolatileHook} from "./interfaces/IVolatileHook.sol";
 import {IDynamicFeeHook} from "../interfaces/IDynamicFeeHook.sol";
 import {BaseDynamicFeeHook} from "../base/BaseDynamicFeeHook.sol";
-import {VolatileFeeConfig, VolatileHookState} from "./interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "./interfaces/IVolatileFeeConfiguration.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
@@ -52,10 +52,11 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         PoolId poolId = key.toId();
         _checkPoolInitialized(poolId);
 
-        (VolatileHookState memory poolState, uint160 currentSqrtPriceX96,) = _loadTopOfBlockState(poolId);
+        (VolatileFeeState memory poolState, VolatileFeeConfig memory config, uint160 currentSqrtPriceX96,) =
+            _loadTopOfBlockState(poolId);
 
-        feeE6ZeroForOne = _getFee(poolState, currentSqrtPriceX96, true);
-        feeE6OneForZero = _getFee(poolState, currentSqrtPriceX96, false);
+        feeE6ZeroForOne = _getFee(poolState, config, currentSqrtPriceX96, true);
+        feeE6OneForZero = _getFee(poolState, config, currentSqrtPriceX96, false);
     }
 
     /// @notice Computes the swap's dynamic fee and overrides it via the v4 fee flag
@@ -70,87 +71,91 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
         returns (bytes4 selector, BeforeSwapDelta delta, uint24 lpFeeOverride)
     {
         PoolId poolId = key.toId();
-        (VolatileHookState memory poolState, uint160 currentSqrtPriceX96, bool isNewBlock) =
-            _loadTopOfBlockState(poolId);
+        (
+            VolatileFeeState memory poolState,
+            VolatileFeeConfig memory config,
+            uint160 currentSqrtPriceX96,
+            bool isNewBlock
+        ) = _loadTopOfBlockState(poolId);
 
         // Persists top of block state if this is the first swap of a new block.
-        if (isNewBlock) {
-            VolatileHookState storage stored = _getVolatileFeeConfigurationStorage().hookState[poolId];
-            stored.blockNumber = poolState.blockNumber;
-            stored.sqrtPriceTopX96 = poolState.sqrtPriceTopX96;
-            stored.askPermFeeE6 = poolState.askPermFeeE6;
-            stored.askBaselineFeeE6 = poolState.askBaselineFeeE6;
-            stored.bidBaselineFeeE6 = poolState.bidBaselineFeeE6;
-        }
+        if (isNewBlock) _getVolatileFeeConfigurationStorage().feeState[poolId] = poolState;
 
-        uint24 feeE6 = _getFee(poolState, currentSqrtPriceX96, params.zeroForOne);
+        uint24 feeE6 = _getFee(poolState, config, currentSqrtPriceX96, params.zeroForOne);
         return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, feeE6 | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 
-    /// @notice Loads a pool's state, advancing it to this block's baselines in memory without writing.
-    /// @dev New block: recomputes baselines from the price impact since the previous open and caches
-    ///      the new open. Same block: returns the stored values unchanged.
+    /// @notice Loads a pool's config and state, advancing the state to this block's skew and temp fee
+    ///         in memory without writing.
+    /// @dev New block: steps the permanent skew and prices the backrun charge from the price impact
+    ///      since the previous open, then caches the new open. Same block: returns the stored values
+    ///      unchanged.
     /// @param _poolId Pool id
-    /// @return poolState Config + state, advanced if isNewBlock
+    /// @return poolState Fee state, advanced if isNewBlock
+    /// @return config Fee config
     /// @return currentSqrtPriceX96 Pool's current sqrt price
     /// @return isNewBlock True on the first swap of a new block, or right after a config reset
     function _loadTopOfBlockState(PoolId _poolId)
         private
         view
-        returns (VolatileHookState memory poolState, uint160 currentSqrtPriceX96, bool isNewBlock)
+        returns (
+            VolatileFeeState memory poolState,
+            VolatileFeeConfig memory config,
+            uint160 currentSqrtPriceX96,
+            bool isNewBlock
+        )
     {
-        poolState = _getVolatileFeeConfigurationStorage().hookState[_poolId];
+        VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
+        poolState = $.feeState[_poolId];
+        config = $.feeConfig[_poolId];
         (currentSqrtPriceX96,,,) = poolManager.getSlot0(_poolId);
-        uint48 currentBlock = uint48(_getBlockNumberish());
+        uint40 currentBlock = uint40(_getBlockNumberish());
 
         // sqrtPriceTopX96 == 0 is the post-config-reset sentinel: no open yet, so open now.
         isNewBlock = currentBlock > poolState.blockNumber || poolState.sqrtPriceTopX96 == 0;
-        if (!isNewBlock) return (poolState, currentSqrtPriceX96, false);
+        if (!isNewBlock) return (poolState, config, currentSqrtPriceX96, false);
 
-        // Price impact: this block's open vs. the previous block's open. No previous open ⇒ 0
-        // (no lean, no backrun).
-        uint256 blockPriceImpactE6;
-        bool blockPriceImpactUp = true;
+        // Price impact: this block's open vs. the previous block's open. No previous open ⇒ zero
+        // impact, and at zero impact newPermAndTempFee leaves the reset state unchanged, so skip both.
         if (poolState.sqrtPriceTopX96 != 0) {
-            (blockPriceImpactE6, blockPriceImpactUp) =
+            (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
                 VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
+            (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
+                config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
+            );
         }
-        (uint24 newAskPerm, uint24 askBaseline, uint24 bidBaseline) = VolatileFeeCalculation.newPermAndTempFee(
-            poolState, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
-        );
-
-        poolState.askPermFeeE6 = newAskPerm;
-        poolState.askBaselineFeeE6 = askBaseline;
-        poolState.bidBaselineFeeE6 = bidBaseline;
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
     }
 
     /// @notice Fee one swap direction pays, escalated from the block's baseline by in-block displacement.
     /// @dev Never reads the swap amount; size-independence is what makes `getFee` well defined.
-    /// @param _poolState Pool's config + top-of-block fee state
+    /// @param _poolState Pool's top-of-block fee state
+    /// @param _config Pool's fee config
     /// @param _currentSqrtPriceX96 Pool's current sqrt price
     /// @param _zeroForOne Swap direction
     /// @return Fee for this direction, clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6
-    function _getFee(VolatileHookState memory _poolState, uint160 _currentSqrtPriceX96, bool _zeroForOne)
-        private
-        pure
-        returns (uint24)
-    {
-        (uint256 displacementFromTopE6, bool displacedUp) =
-            VolatileFeeCalculation.relativeMoveE6(_currentSqrtPriceX96, _poolState.sqrtPriceTopX96);
+    function _getFee(
+        VolatileFeeState memory _poolState,
+        VolatileFeeConfig memory _config,
+        uint160 _currentSqrtPriceX96,
+        bool _zeroForOne
+    ) private pure returns (uint24) {
+        (uint256 displacementFromTopE6, bool displacedUp) = VolatileFeeCalculation.relativeMoveE6(
+            _currentSqrtPriceX96, _poolState.sqrtPriceTopX96
+        );
         // A sell (zeroForOne) pays the bid baseline, a buy pays the ask baseline.
-        uint24 baselineFeeE6 = _zeroForOne ? _poolState.bidBaselineFeeE6 : _poolState.askBaselineFeeE6;
+        uint24 baselineFeeE6 = VolatileFeeCalculation.baselineFee(_poolState, _config.restingSpreadE6, _zeroForOne);
 
         if (_zeroForOne == displacedUp) {
             // Trading against the displacement is a backrun.
             return VolatileFeeCalculation.displacementBackrunFee(
-                baselineFeeE6, displacementFromTopE6, _poolState.backrunCaptureFractionE6
+                baselineFeeE6, displacementFromTopE6, _config.backrunCaptureFractionE6
             );
         } else {
             // Trading in the same direction the displacement is a continuation, we apply a trend fee
             return VolatileFeeCalculation.displacementContinuingFee(
-                baselineFeeE6, displacementFromTopE6, _poolState.midFadeRateE6, _poolState.maxMidFadeE6
+                baselineFeeE6, displacementFromTopE6, _config.midFadeRateE6, _config.maxMidFadeE6
             );
         }
     }

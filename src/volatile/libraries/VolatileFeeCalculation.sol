@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
-import {VolatileHookState} from "../interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "../interfaces/IVolatileFeeConfiguration.sol";
 
 /// @title VolatileFeeCalculation
 /// @notice Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 1e6 = 100%.
@@ -143,51 +143,54 @@ library VolatileFeeCalculation {
         }
     }
 
-    /// @notice Composes the top-of-block baselines (permanent + temporary) for a new block.
-    /// @param hookState Pool's hook state, read only for its config half
+    /// @notice Advances the permanent skew for a new block and prices its one-block backrun charge.
+    /// @dev The side the price moved toward leans (its permanent fee steps up) and the other side is the
+    ///      backrun side, which carries the temp fee. Baselines follow from `baselineFee`.
+    /// @param config Pool's fee config
     /// @param oldAskPermFeeE6 Previous block's permanent ask-side fee
     /// @param blockPriceImpactE6 Price impact magnitude
     /// @param blockPriceImpactUp True if price moved up since the previous block
     /// @return newAskPermFeeE6 New permanent ask-side fee to store
-    /// @return askBaselineFeeE6 Ask-side baseline for the block, clamped to MAX_HOOK_FEE_E6
-    /// @return bidBaselineFeeE6 Bid-side baseline for the block, clamped to MAX_HOOK_FEE_E6
+    /// @return tempFeeE6 Temporary fee for the block, clamped to MAX_HOOK_FEE_E6
+    /// @return tempOnBid True if the temp fee is on the bid side, false if on the ask side
     function newPermAndTempFee(
-        VolatileHookState memory hookState,
+        VolatileFeeConfig memory config,
         uint24 oldAskPermFeeE6,
         uint256 blockPriceImpactE6,
         bool blockPriceImpactUp
-    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
-        if (blockPriceImpactUp) {
-            newAskPermFeeE6 = newPermanentFee(
-                oldAskPermFeeE6, blockPriceImpactE6, hookState.skewRateE6, hookState.maxSkewStepE6, hookState.maxSkewE6
-            );
-            uint24 bidTempFee = temporaryBackrunFee(
-                newAskPermFeeE6,
-                oldAskPermFeeE6,
-                blockPriceImpactE6,
-                hookState.backrunCaptureFractionE6,
-                hookState.backrunThresholdE6
-            );
-            // The perm side is bounded by maxSkewE6 <= MAX_HOOK_FEE_E6 at config time; only the temp side
-            // can exceed the ceiling.
-            askBaselineFeeE6 = newAskPermFeeE6;
-            bidBaselineFeeE6 = clampToMaxHookFeeE6(uint256(hookState.restingSpreadE6 - newAskPermFeeE6) + bidTempFee);
-        } else {
-            uint24 oldBidPermFee = hookState.restingSpreadE6 - oldAskPermFeeE6;
-            uint24 newBidPermFee = newPermanentFee(
-                oldBidPermFee, blockPriceImpactE6, hookState.skewRateE6, hookState.maxSkewStepE6, hookState.maxSkewE6
-            );
-            uint24 askTempFee = temporaryBackrunFee(
-                newBidPermFee,
-                oldBidPermFee,
-                blockPriceImpactE6,
-                hookState.backrunCaptureFractionE6,
-                hookState.backrunThresholdE6
-            );
-            newAskPermFeeE6 = hookState.restingSpreadE6 - newBidPermFee;
-            bidBaselineFeeE6 = newBidPermFee;
-            askBaselineFeeE6 = clampToMaxHookFeeE6(uint256(newAskPermFeeE6) + askTempFee);
-        }
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 tempFeeE6, bool tempOnBid) {
+        // An up move makes buying dearer: the ask leans and the bid is the backrun side.
+        tempOnBid = blockPriceImpactUp;
+        uint24 oldLeanPermFeeE6 = tempOnBid ? oldAskPermFeeE6 : config.restingSpreadE6 - oldAskPermFeeE6;
+        uint24 newLeanPermFeeE6 = newPermanentFee(
+            oldLeanPermFeeE6, blockPriceImpactE6, config.skewRateE6, config.maxSkewStepE6, config.maxSkewE6
+        );
+        tempFeeE6 = temporaryBackrunFee(
+            newLeanPermFeeE6,
+            oldLeanPermFeeE6,
+            blockPriceImpactE6,
+            config.backrunCaptureFractionE6,
+            config.backrunThresholdE6
+        );
+        newAskPermFeeE6 = tempOnBid ? newLeanPermFeeE6 : config.restingSpreadE6 - newLeanPermFeeE6;
+    }
+
+    /// @notice One side's top-of-block baseline from the stored skew and temp fee.
+    /// @dev The leaning side's baseline is its permanent fee; the backrun side's adds the temp fee. Both
+    ///      permanent fees are <= maxSkewE6 <= MAX_HOOK_FEE_E6 by the config bounds, so only the temp
+    ///      side can exceed the ceiling and needs the clamp.
+    /// @param state Pool's fee state
+    /// @param restingSpreadE6 Permanent pie: ask + bid fee
+    /// @param zeroForOne Swap direction; a sell (true) pays the bid side, a buy (false) the ask side
+    /// @return baselineFeeE6 Baseline for that side, clamped to MAX_HOOK_FEE_E6
+    function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool zeroForOne)
+        internal
+        pure
+        returns (uint24 baselineFeeE6)
+    {
+        uint24 permFeeE6 = zeroForOne ? restingSpreadE6 - state.askPermFeeE6 : state.askPermFeeE6;
+        if (zeroForOne != state.tempOnBid) return permFeeE6;
+        baselineFeeE6 = clampToMaxHookFeeE6(uint256(permFeeE6) + state.tempFeeE6);
     }
 
     /// @notice Clamps a fee to MAX_HOOK_FEE_E6.

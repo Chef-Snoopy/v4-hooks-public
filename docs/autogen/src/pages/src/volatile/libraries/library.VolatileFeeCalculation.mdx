@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/4a9d18e39e2573eb144355aaadff86fbfccc12d9/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -197,26 +197,33 @@ function temporaryBackrunFee(
 | ---- | ---- | ----------- |
 | tempFeeE6 | `uint24` | Temporary fee on the backrun side |
 
-<a id="newpermandtempfee-volatilehookstate-uint24-uint256-bool"></a>
+<a id="newpermandtempfee-volatilefeeconfig-uint24-uint256-bool"></a>
 
 ### newPermAndTempFee
 
-Composes the top-of-block baselines (permanent + temporary) for a new block.
+Advances the permanent skew for a new block and prices its one-block backrun charge.
+
+<i>
+
+The side the price moved toward leans (its permanent fee steps up) and the other side is the
+backrun side, which carries the temp fee. Baselines follow from `baselineFee`.
+
+</i>
 
 ```solidity
 function newPermAndTempFee(
-        VolatileHookState memory hookState,
+        VolatileFeeConfig memory config,
         uint24 oldAskPermFeeE6,
         uint256 blockPriceImpactE6,
         bool blockPriceImpactUp
-    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6);
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 tempFeeE6, bool tempOnBid);
 ```
 
 **Parameters**
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| hookState | `VolatileHookState` | Pool's hook state, read only for its config half |
+| config | `VolatileFeeConfig` | Pool's fee config |
 | oldAskPermFeeE6 | `uint24` | Previous block's permanent ask-side fee |
 | blockPriceImpactE6 | `uint256` | Price impact magnitude |
 | blockPriceImpactUp | `bool` | True if price moved up since the previous block |
@@ -226,8 +233,43 @@ function newPermAndTempFee(
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAskPermFeeE6 | `uint24` | New permanent ask-side fee to store |
-| askBaselineFeeE6 | `uint24` | Ask-side baseline for the block, clamped to MAX_HOOK_FEE_E6 |
-| bidBaselineFeeE6 | `uint24` | Bid-side baseline for the block, clamped to MAX_HOOK_FEE_E6 |
+| tempFeeE6 | `uint24` | Temporary fee for the block, clamped to MAX_HOOK_FEE_E6 |
+| tempOnBid | `bool` | True if the temp fee is on the bid side, false if on the ask side |
+
+<a id="baselinefee-volatilefeestate-uint24-bool"></a>
+
+### baselineFee
+
+One side's top-of-block baseline from the stored skew and temp fee.
+
+<i>
+
+The leaning side's baseline is its permanent fee; the backrun side's adds the temp fee. Both
+permanent fees are &lt;= maxSkewE6 &lt;= MAX_HOOK_FEE_E6 by the config bounds, so only the temp
+side can exceed the ceiling and needs the clamp.
+
+</i>
+
+```solidity
+function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool zeroForOne)
+        internal
+        pure
+        returns (uint24 baselineFeeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| state | `VolatileFeeState` | Pool's fee state |
+| restingSpreadE6 | `uint24` | Permanent pie: ask + bid fee |
+| zeroForOne | `bool` | Swap direction; a sell (true) pays the bid side, a buy (false) the ask side |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| baselineFeeE6 | `uint24` | Baseline for that side, clamped to MAX_HOOK_FEE_E6 |
 
 <a id="clamptomaxhookfeee6-uint256"></a>
 

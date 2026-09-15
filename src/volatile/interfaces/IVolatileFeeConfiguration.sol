@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {PoolId} from "@uniswap/v4-core/src/types/PoolId.sol";
 
 /// @notice Static per-pool config for the volatile fee algorithm, set by the config manager.
-/// @dev Fee-like fields are E6 pips; 1e6 = 100%.
+/// @dev Fee-like fields are E6 pips; 1e6 = 100%. restingSpreadE6 == 0 means unconfigured.
 struct VolatileFeeConfig {
     uint24 restingSpreadE6; // permanent pie: ask + bid fee
     uint24 backrunCaptureFractionE6; // LP share of backrun profit
@@ -16,27 +16,18 @@ struct VolatileFeeConfig {
     uint24 backrunThresholdE6; // min price impact that arms the backrun charge
 }
 
-/// @notice A pool's hook storage: per-block fee state plus the static config, in one struct.
-/// @dev State and config share a struct so the swap path does a single mapping lookup. Only the
-///      ask-side permanent fee is stored; bid perm = restingSpreadE6 - askPermFeeE6. sqrtPriceTopX96
-///      is this block's open for mid-block displacement, and the previous block's open for the next
-///      block's price impact. Config fields mirror `VolatileFeeConfig`, the calldata/event shape.
-struct VolatileHookState {
-    // Mutable, updated on the first swap of each new block.
-    uint48 blockNumber; // block of the last update
-    uint160 sqrtPriceTopX96; // block-open price
+/// @notice Per-pool fee state, advanced on the first swap of each block. Packs into one slot.
+/// @dev Only the ask-side permanent fee is stored; bid perm = restingSpreadE6 - askPermFeeE6. Baselines
+///      are not stored either: the leaning side's baseline is its permanent fee and the backrun side's
+///      is its permanent fee plus tempFeeE6 (VolatileFeeCalculation.baselineFee). sqrtPriceTopX96 is
+///      this block's open for mid-block displacement, and the previous block's open for the next
+///      block's price impact.
+struct VolatileFeeState {
+    uint40 blockNumber; // block of the last update
+    uint160 sqrtPriceTopX96; // block-open price; 0 after a config write until the first swap
     uint24 askPermFeeE6; // permanent ask-side fee (sticky skew)
-    uint24 askBaselineFeeE6; // ask-side baseline this block
-    uint24 bidBaselineFeeE6; // bid-side baseline this block
-    // Static config, seeded by the config manager; restingSpreadE6 == 0 means unconfigured.
-    uint24 restingSpreadE6;
-    uint24 backrunCaptureFractionE6;
-    uint24 midFadeRateE6;
-    uint24 maxMidFadeE6;
-    uint24 skewRateE6;
-    uint24 maxSkewStepE6;
-    uint24 maxSkewE6;
-    uint24 backrunThresholdE6;
+    uint24 tempFeeE6; // one-block backrun charge on the side named by tempOnBid
+    bool tempOnBid; // true: tempFeeE6 is on the bid side; false: on the ask side
 }
 
 /// @notice Interface for the volatile fee configuration (config-manager-owned per-pool params).

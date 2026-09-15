@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import {
     IVolatileFeeConfiguration,
     VolatileFeeConfig,
-    VolatileHookState
+    VolatileFeeState
 } from "../interfaces/IVolatileFeeConfiguration.sol";
 import {IDynamicFeeHook} from "../../interfaces/IDynamicFeeHook.sol";
 import {VolatileFeeCalculation} from "../libraries/VolatileFeeCalculation.sol";
@@ -17,8 +17,10 @@ import {BlockNumberish} from "@uniswap/blocknumberish/src/BlockNumberish.sol";
 abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolatileFeeConfiguration {
     /// @custom:storage-location erc7201:uniswap.storage.VolatileFeeConfiguration
     struct VolatileFeeConfigurationStorage {
-        /// @notice Per-pool config + state
-        mapping(PoolId => VolatileHookState) hookState;
+        /// @dev The fee config for each pool
+        mapping(PoolId => VolatileFeeConfig) feeConfig;
+        /// @dev The fee state for each pool
+        mapping(PoolId => VolatileFeeState) feeState;
     }
 
     /// @dev keccak256(abi.encode(uint256(keccak256("uniswap.storage.VolatileFeeConfiguration")) - 1)) & ~bytes32(uint256(0xff))
@@ -80,7 +82,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
             uint24 backrunThresholdE6
         )
     {
-        VolatileHookState storage config = _getVolatileFeeConfigurationStorage().hookState[poolId];
+        VolatileFeeConfig storage config = _getVolatileFeeConfigurationStorage().feeConfig[poolId];
         return (
             config.restingSpreadE6,
             config.backrunCaptureFractionE6,
@@ -98,34 +100,22 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @return blockNumber Block of the last update
     /// @return sqrtPriceTopX96 Block-open sqrt price; 0 after a config write until the first swap
     /// @return askPermFeeE6 Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6
-    /// @return askBaselineFeeE6 Ask-side baseline this block
-    /// @return bidBaselineFeeE6 Bid-side baseline this block
+    /// @return tempFeeE6 One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee
+    /// @return tempOnBid True if tempFeeE6 is on the bid side, false if on the ask side
     function feeState(PoolId poolId)
         public
         view
-        returns (
-            uint48 blockNumber,
-            uint160 sqrtPriceTopX96,
-            uint24 askPermFeeE6,
-            uint24 askBaselineFeeE6,
-            uint24 bidBaselineFeeE6
-        )
+        returns (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid)
     {
-        VolatileHookState storage state = _getVolatileFeeConfigurationStorage().hookState[poolId];
-        return
-            (
-                state.blockNumber,
-                state.sqrtPriceTopX96,
-                state.askPermFeeE6,
-                state.askBaselineFeeE6,
-                state.bidBaselineFeeE6
-            );
+        VolatileFeeState storage state = _getVolatileFeeConfigurationStorage().feeState[poolId];
+        return (state.blockNumber, state.sqrtPriceTopX96, state.askPermFeeE6, state.tempFeeE6, state.tempOnBid);
     }
 
     /// @notice Validates the config, stores it, and resets the pool's fee state to neutral.
     /// @dev Bounds hold askPermFeeE6 in [restingSpreadE6 - maxSkewE6, maxSkewE6]; the reset to
-    ///      restingSpreadE6 / 2 re-establishes it on every write.
-    ///      Also resets sqrtPriceTopX96 to 0, so price impact is treated as 0 until the first swap.
+    ///      restingSpreadE6 / 2 re-establishes it on every write, and clearing the temp fee puts both
+    ///      baselines at their permanent fees. Also resets sqrtPriceTopX96 to 0, so price impact is
+    ///      treated as 0 until the first swap.
     /// @param _poolId Pool to configure
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
@@ -135,32 +125,25 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         _validateMaxSkewStepE6(_feeConfig.maxSkewStepE6, _feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
         _validateMaxMidFadeE6(_feeConfig.maxMidFadeE6);
 
-        uint24 halfE6 = _feeConfig.restingSpreadE6 / 2;
-        _getVolatileFeeConfigurationStorage().hookState[_poolId] = VolatileHookState({
-            blockNumber: uint48(_getBlockNumberish()),
+        VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
+        $.feeConfig[_poolId] = _feeConfig;
+        $.feeState[_poolId] = VolatileFeeState({
+            blockNumber: uint40(_getBlockNumberish()),
             sqrtPriceTopX96: 0,
-            askPermFeeE6: halfE6,
-            askBaselineFeeE6: halfE6,
-            bidBaselineFeeE6: _feeConfig.restingSpreadE6 - halfE6,
-            restingSpreadE6: _feeConfig.restingSpreadE6,
-            backrunCaptureFractionE6: _feeConfig.backrunCaptureFractionE6,
-            midFadeRateE6: _feeConfig.midFadeRateE6,
-            maxMidFadeE6: _feeConfig.maxMidFadeE6,
-            skewRateE6: _feeConfig.skewRateE6,
-            maxSkewStepE6: _feeConfig.maxSkewStepE6,
-            maxSkewE6: _feeConfig.maxSkewE6,
-            backrunThresholdE6: _feeConfig.backrunThresholdE6
+            askPermFeeE6: _feeConfig.restingSpreadE6 / 2,
+            tempFeeE6: 0,
+            tempOnBid: false
         });
     }
 
     /// @notice Reverts PoolNotInitialized unless the pool has a stored config.
+    /// @dev Config is only ever seeded by the hook's pool-initialization entrypoint, which enforces
+    ///      the hook address and dynamic fee and initializes the pool on the PoolManager in the same
+    ///      call. A nonzero resting spread (validated nonzero on every write) therefore proves the
+    ///      pool exists, uses this hook, and has a dynamic fee.
     /// @param _poolId Pool to check
     function _checkPoolInitialized(PoolId _poolId) internal view {
-        /// @dev Config is only ever seeded by the hook's pool-initialization entrypoint, which enforces
-        ///      the hook address and dynamic fee and initializes the pool on the PoolManager in the same
-        ///      call. A nonzero reference price (validated nonzero on every write) therefore proves the
-        ///      pool exists, uses this hook, and has a dynamic fee.
-        if (_getVolatileFeeConfigurationStorage().hookState[_poolId].restingSpreadE6 == 0) {
+        if (_getVolatileFeeConfigurationStorage().feeConfig[_poolId].restingSpreadE6 == 0) {
             revert IDynamicFeeHook.PoolNotInitialized(_poolId);
         }
     }

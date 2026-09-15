@@ -72,5 +72,5 @@ src/volatile/contract.VolatileHook.mdx
 src/volatile/interfaces/interface.IVolatileFeeConfiguration.mdx
 src/volatile/interfaces/interface.IVolatileHook.mdx
 src/volatile/interfaces/struct.VolatileFeeConfig.mdx
-src/volatile/interfaces/struct.VolatileHookState.mdx
+src/volatile/interfaces/struct.VolatileFeeState.mdx
 src/volatile/libraries/library.VolatileFeeCalculation.mdx

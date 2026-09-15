@@ -5,7 +5,7 @@ description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm);
 
 # VolatileHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/09a9dc5f9a8f10d7c9ed275261a75201e9d2b48c/src/volatile/VolatileHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/VolatileHook.sol)
 
 **Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatileHook](/src/volatile/interfaces/interface.IVolatileHook)
 
@@ -132,12 +132,14 @@ function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, 
 
 ### _loadTopOfBlockState
 
-Loads a pool's state, advancing it to this block's baselines in memory without writing.
+Loads a pool's config and state, advancing the state to this block's skew and temp fee
+in memory without writing.
 
 <i>
 
-New block: recomputes baselines from the price impact since the previous open and caches
-the new open. Same block: returns the stored values unchanged.
+New block: steps the permanent skew and prices the backrun charge from the price impact
+since the previous open, then caches the new open. Same block: returns the stored values
+unchanged.
 
 </i>
 
@@ -145,7 +147,12 @@ the new open. Same block: returns the stored values unchanged.
 function _loadTopOfBlockState(PoolId _poolId)
         private
         view
-        returns (VolatileHookState memory poolState, uint160 currentSqrtPriceX96, bool isNewBlock);
+        returns (
+            VolatileFeeState memory poolState,
+            VolatileFeeConfig memory config,
+            uint160 currentSqrtPriceX96,
+            bool isNewBlock
+        );
 ```
 
 **Parameters**
@@ -158,11 +165,12 @@ function _loadTopOfBlockState(PoolId _poolId)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| poolState | `VolatileHookState` | Config + state, advanced if isNewBlock |
+| poolState | `VolatileFeeState` | Fee state, advanced if isNewBlock |
+| config | `VolatileFeeConfig` | Fee config |
 | currentSqrtPriceX96 | `uint160` | Pool's current sqrt price |
 | isNewBlock | `bool` | True on the first swap of a new block, or right after a config reset |
 
-<a id="_getfee-volatilehookstate-uint160-bool"></a>
+<a id="_getfee-volatilefeestate-volatilefeeconfig-uint160-bool"></a>
 
 ### _getFee
 
@@ -175,17 +183,20 @@ Never reads the swap amount; size-independence is what makes `getFee` well defin
 </i>
 
 ```solidity
-function _getFee(VolatileHookState memory _poolState, uint160 _currentSqrtPriceX96, bool _zeroForOne)
-        private
-        pure
-        returns (uint24);
+function _getFee(
+        VolatileFeeState memory _poolState,
+        VolatileFeeConfig memory _config,
+        uint160 _currentSqrtPriceX96,
+        bool _zeroForOne
+    ) private pure returns (uint24);
 ```
 
 **Parameters**
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _poolState | `VolatileHookState` | Pool's config + top-of-block fee state |
+| _poolState | `VolatileFeeState` | Pool's top-of-block fee state |
+| _config | `VolatileFeeConfig` | Pool's fee config |
 | _currentSqrtPriceX96 | `uint160` | Pool's current sqrt price |
 | _zeroForOne | `bool` | Swap direction |
 
