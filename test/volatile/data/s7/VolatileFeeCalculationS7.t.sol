@@ -38,8 +38,8 @@ contract VolatileFeeCalculationS7Test is VolatileVectorTestBase {
     }
 
     function test_s7_newPermAndTempFee_fromNeutral() public pure {
-        (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) = VolatileFeeCalculation.newPermAndTempFee(
-            _hookState(SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6), NEUTRAL_PERM_FEE_E6, PI_E6, true
+        (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) = _newPermAndBaselines(
+            _feeConfig(SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6), NEUTRAL_PERM_FEE_E6, PI_E6, true
         );
         assertGeWithinPip(newAskPermFeeE6, H_ASK_E6, "hAsk");
         assertGeWithinPip(askBaselineFeeE6, F_ASK_E6, "fAsk");

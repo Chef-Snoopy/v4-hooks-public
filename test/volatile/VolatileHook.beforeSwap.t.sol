@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
 import {IDynamicFeeHook} from "../../src/interfaces/IDynamicFeeHook.sol";
-import {VolatileFeeConfig, VolatileHookState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileFeeCalculation} from "../../src/volatile/libraries/VolatileFeeCalculation.sol";
 import {ImmutableState} from "@uniswap/v4-periphery/src/base/ImmutableState.sol";
 import {Constants} from "@uniswap/v4-core/test/utils/Constants.sol";
@@ -107,12 +107,12 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         return false;
     }
 
-    function _assertStateEq(VolatileHookState memory a, VolatileHookState memory b, string memory label) internal pure {
+    function _assertStateEq(VolatileFeeState memory a, VolatileFeeState memory b, string memory label) internal pure {
         assertEq(a.blockNumber, b.blockNumber, string.concat(label, ": blockNumber"));
         assertEq(a.sqrtPriceTopX96, b.sqrtPriceTopX96, string.concat(label, ": sqrtPriceTopX96"));
         assertEq(a.askPermFeeE6, b.askPermFeeE6, string.concat(label, ": askPermFeeE6"));
-        assertEq(a.askBaselineFeeE6, b.askBaselineFeeE6, string.concat(label, ": askBaselineFeeE6"));
-        assertEq(a.bidBaselineFeeE6, b.bidBaselineFeeE6, string.concat(label, ": bidBaselineFeeE6"));
+        assertEq(a.tempFeeE6, b.tempFeeE6, string.concat(label, ": tempFeeE6"));
+        assertEq(a.tempOnBid, b.tempOnBid, string.concat(label, ": tempOnBid"));
     }
 
     function _assertGetFeeMatchesSwap() internal {
@@ -190,7 +190,7 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
     }
 
     /// askPerm = 450 + 300 = 750 < maxSkew 900, so the step binds;
-    /// bid baseline = (RS - askPerm) + step + min(bcf * PI, 999_998) = 150 + 300 + 999_998 = 1_000_448, clamped.
+    /// bid baseline = (RS - askPerm) + min(step + bcf * PI, 999_998) = 150 + 999_998 = 1_000_148, clamped.
     function test_beforeSwap_nextBlockAfterExtremeUpMove_stepsAskPermAndClampsBidBaseline() public {
         _swapFee(testPoolKey, true);
         _setAmmPrice(SQRT_PRICE_UP_16_778_216_E6);
@@ -201,10 +201,13 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         assertEq(feeOneForZeroE6, NEUTRAL_FEE_E6 + MAX_SKEW_STEP_E6, "ask perm steps by maxSkewStep, under maxSkew");
 
         _callBeforeSwap(testPoolKey, true);
-        VolatileHookState memory s = _storedState(testPoolKey.toId());
+        VolatileFeeState memory s = _storedState(testPoolKey.toId());
         assertEq(s.askPermFeeE6, NEUTRAL_FEE_E6 + MAX_SKEW_STEP_E6, "stored ask perm");
-        assertEq(s.askBaselineFeeE6, s.askPermFeeE6, "no backrun charge on the leaning side");
-        assertEq(s.bidBaselineFeeE6, MAX_HOOK_FEE_E6, "1_000_448 clamps");
+        assertTrue(s.tempOnBid, "temp fee sits on the bid side");
+        (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _storedBaselines(testPoolKey.toId());
+        assertEq(askBaselineFeeE6, s.askPermFeeE6, "no backrun charge on the leaning side");
+        assertEq(s.tempFeeE6, MAX_HOOK_FEE_E6, "step + capture clamps as a whole");
+        assertEq(bidBaselineFeeE6, MAX_HOOK_FEE_E6, "1_000_148 clamps");
     }
 
     // -------------------------------------------------------------------------
@@ -281,11 +284,13 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
 
         uint24 feeE6 = _callBeforeSwap(testPoolKey, true);
 
-        VolatileHookState memory state = _storedState(poolId);
+        VolatileFeeState memory state = _storedState(poolId);
         assertEq(state.sqrtPriceTopX96, livePrice, "must cache the live price, not the init price");
         assertEq(state.askPermFeeE6, NEUTRAL_FEE_E6, "no skew off an undefined PI");
-        assertEq(state.askBaselineFeeE6, NEUTRAL_FEE_E6);
-        assertEq(state.bidBaselineFeeE6, NEUTRAL_FEE_E6);
+        assertEq(state.tempFeeE6, 0, "no backrun charge off an undefined PI");
+        (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _storedBaselines(poolId);
+        assertEq(askBaselineFeeE6, NEUTRAL_FEE_E6);
+        assertEq(bidBaselineFeeE6, NEUTRAL_FEE_E6);
         assertEq(feeE6, NEUTRAL_FEE_E6, "and the swap pays the neutral baseline");
     }
 
@@ -301,11 +306,11 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
 
         _setConfig(_defaultConfig());
 
-        VolatileHookState memory reset = _storedState(poolId);
+        VolatileFeeState memory reset = _storedState(poolId);
         assertEq(reset.sqrtPriceTopX96, 0, "reset must zero the cached open");
         assertEq(reset.askPermFeeE6, NEUTRAL_FEE_E6, "reset must recentre the skew");
 
-        // same block as the reset: the zeroed cache alone forces the re-read
+        // same block as the reset: the zeroed blockNumber alone makes this swap a new block
         uint160 freshPrice = _sqrtPriceScaled(sqrtAmmPriceX96, 1_020_000);
         _setAmmPrice(freshPrice);
         uint24 feeE6 = _callBeforeSwap(testPoolKey, true);
@@ -328,11 +333,11 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         _swapFee(testPoolKey, true);
         (, bytes32[] memory writes) = vm.accesses(address(hook));
 
-        assertTrue(_contains(writes, _stateSlot(poolId, 0)), "must write state word 0");
-        assertTrue(_contains(writes, _stateSlot(poolId, 1)), "must write state word 1");
+        assertTrue(_contains(writes, _stateSlot(poolId)), "must write the state word");
+        assertFalse(_contains(writes, _configSlot(poolId)), "must not touch the config word");
 
-        VolatileHookState memory state = _storedState(poolId);
-        assertEq(state.blockNumber, uint48(block.number), "block stamped");
+        VolatileFeeState memory state = _storedState(poolId);
+        assertEq(state.blockNumber, uint40(block.number), "block stamped");
         assertEq(state.sqrtPriceTopX96, openPrice, "open cached");
     }
 
@@ -345,7 +350,7 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         _swapFee(testPoolKey, true);
 
         assertEq(keccak256(abi.encode(_storedConfig(poolId))), keccak256(abi.encode(before)), "config survives");
-        assertTrue(_storedState(poolId).sqrtPriceTopX96 != 0, "and the write it shares a word with landed");
+        assertTrue(_storedState(poolId).sqrtPriceTopX96 != 0, "and the state write landed");
     }
 
     function test_beforeSwap_laterSwapsInBlock_writeNothingButStillReprice() public {
@@ -354,7 +359,7 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         uint24 openFeeE6 = _callBeforeSwap(testPoolKey, true);
         assertEq(openFeeE6, NEUTRAL_FEE_E6, "no displacement at the open");
 
-        VolatileHookState memory before = _storedState(poolId);
+        VolatileFeeState memory before = _storedState(poolId);
 
         // +1%: selling into it is the backrun, buying continues it
         _setAmmPrice(_sqrtPriceScaled(sqrtAmmPriceX96, 1_010_000));
@@ -386,9 +391,9 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
         _setAmmPrice(_sqrtPriceScaled(sqrtAmmPriceX96, 1_040_000));
         _advanceBlocks(1);
 
-        VolatileHookState memory before = _storedState(poolId);
+        VolatileFeeState memory before = _storedState(poolId);
         bytes32 rawStateBefore = _rawStateHash(poolId);
-        assertTrue(before.blockNumber != uint48(block.number), "stored block must still be stale");
+        assertTrue(before.blockNumber != uint40(block.number), "stored block must still be stale");
 
         hook.getFee(testPoolKey);
         hook.getFee(testPoolKey);
@@ -410,16 +415,17 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
 
         vm.roll(1000);
         _swapFee(testPoolKey, true);
-        VolatileHookState memory primed = _storedState(poolId);
+        VolatileFeeState memory primed = _storedState(poolId);
         assertEq(primed.blockNumber, 1000);
 
         vm.roll(999);
         _callBeforeSwap(testPoolKey, true);
         _assertStateEq(_storedState(poolId), primed, "a regressed block changes nothing");
 
-        // post-reset sentinel: a zeroed cache opens regardless of block number
+        // post-reset: blockNumber is zeroed, so any block number opens
         vm.roll(2000);
         _setConfig(_defaultConfig());
+        assertEq(_storedState(poolId).blockNumber, 0, "reset must zero the stored block");
         vm.roll(1999);
         _callBeforeSwap(testPoolKey, true);
         assertEq(_storedState(poolId).blockNumber, 1999);
@@ -432,7 +438,7 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
     function test_beforeSwap_swappingOnePool_leavesOtherPoolsUntouched() public {
         PoolKey[3] memory neighbours = _secondaryPools();
 
-        VolatileHookState[3] memory before;
+        VolatileFeeState[3] memory before;
         uint24[3] memory quotedBeforeE6;
         for (uint256 i = 0; i < neighbours.length; i++) {
             before[i] = _storedState(neighbours[i].toId());
@@ -464,7 +470,7 @@ contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
             _callBeforeSwap(neighbours[i], true);
         }
 
-        VolatileHookState[3] memory before;
+        VolatileFeeState[3] memory before;
         for (uint256 i = 0; i < neighbours.length; i++) {
             before[i] = _storedState(neighbours[i].toId());
             assertTrue(before[i].sqrtPriceTopX96 != 0, "neighbour must hold a cached open");

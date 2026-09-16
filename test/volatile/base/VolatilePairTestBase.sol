@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {VolatileFuzzTestBase} from "./VolatileFuzzTestBase.sol";
 import {VolatileHook} from "../../../src/volatile/VolatileHook.sol";
 import {BaseDynamicFeeHook} from "../../../src/base/BaseDynamicFeeHook.sol";
-import {VolatileFeeConfig, VolatileHookState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
@@ -169,20 +169,22 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
         vm.roll(block.number + blocks);
     }
 
+    /// `feeConfig` is the namespaced struct's first member, so its mapping hashes from the base slot itself.
+    function _configSlot(PoolId poolId) internal pure returns (bytes32) {
+        return keccak256(abi.encode(poolId, FEE_CONFIGURATION_BASE_SLOT));
+    }
+
+    /// `feeState` is the second member: base + 1.
     function _stateSlot(PoolId poolId) internal pure returns (bytes32) {
-        return _stateSlot(poolId, 0);
+        return keccak256(abi.encode(poolId, uint256(FEE_CONFIGURATION_BASE_SLOT) + 1));
     }
 
-    /// `hookState` is the namespaced struct's only member, so its mapping hashes from the base slot itself.
-    function _stateSlot(PoolId poolId, uint256 word) internal pure returns (bytes32) {
-        return bytes32(uint256(keccak256(abi.encode(poolId, FEE_CONFIGURATION_BASE_SLOT))) + word);
-    }
-
-    /// Both raw `hookState` words; catches fields `feeState` omits.
+    /// Both raw per-pool words (state and config); catches fields `feeState` omits.
     function _rawStateHash(PoolId poolId) internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(vm.load(address(hook), _stateSlot(poolId, 0)), vm.load(address(hook), _stateSlot(poolId, 1)))
-        );
+        return
+            keccak256(
+                abi.encode(vm.load(address(hook), _stateSlot(poolId)), vm.load(address(hook), _configSlot(poolId)))
+            );
     }
 
     function _storedConfig(PoolId poolId) internal view returns (VolatileFeeConfig memory c) {
@@ -198,9 +200,13 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
         ) = hook.feeConfig(poolId);
     }
 
-    /// Mutable half only; the config half stays zero.
-    function _storedState(PoolId poolId) internal view returns (VolatileHookState memory s) {
-        (s.blockNumber, s.sqrtPriceTopX96, s.askPermFeeE6, s.askBaselineFeeE6, s.bidBaselineFeeE6) =
-            hook.feeState(poolId);
+    function _storedState(PoolId poolId) internal view returns (VolatileFeeState memory s) {
+        (s.blockNumber, s.sqrtPriceTopX96, s.askPermFeeE6, s.tempFeeE6, s.tempOnBid) = hook.feeState(poolId);
+    }
+
+    /// Baselines are not stored; derived from the stored skew and temp fee the way `_getFee` derives them.
+    function _storedBaselines(PoolId poolId) internal view returns (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
+        (uint24 restingSpreadE6,,,,,,,) = hook.feeConfig(poolId);
+        return _baselines(_storedState(poolId), restingSpreadE6);
     }
 }

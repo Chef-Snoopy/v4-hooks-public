@@ -29,12 +29,12 @@ contract VolatileFeeCalculationS6Test is VolatileVectorTestBase {
     }
 
     /// @notice Backrun side pays baseline + c * |dv|, uncapped: 5000 pips add 2500.
-    function test_s6_midBlockBackrunFee_matchesF() public view {
+    function test_s6_displacementBackrunFee_matchesF() public view {
         Row[] memory rows = _rows();
         for (uint256 i = 0; i < rows.length; i++) {
             (uint24 baselineFeeE6, uint256 expectedFeeE6) =
                 rows[i].dvE6 > 0 ? (rows[i].baseBidE6, rows[i].fBidE6) : (rows[i].baseAskE6, rows[i].fAskE6);
-            uint256 feeE6 = VolatileFeeCalculation.midBlockBackrunFee(
+            uint256 feeE6 = VolatileFeeCalculation.displacementBackrunFee(
                 baselineFeeE6, _abs(rows[i].dvE6), BACKRUN_CAPTURE_FRACTION_E6
             );
             assertGeWithinPip(feeE6, expectedFeeE6, _label(rows[i].name, "f backrun"));
@@ -42,12 +42,12 @@ contract VolatileFeeCalculationS6Test is VolatileVectorTestBase {
     }
 
     /// @notice Continuing side pays baseline + min(alpha_mid * |dv|, d_mid): 100 on 500 pips, 200 from 1000 up.
-    function test_s6_midBlockContinuingFee_matchesF() public view {
+    function test_s6_displacementContinuingFee_matchesF() public view {
         Row[] memory rows = _rows();
         for (uint256 i = 0; i < rows.length; i++) {
             (uint24 baselineFeeE6, uint256 expectedFeeE6) =
                 rows[i].dvE6 > 0 ? (rows[i].baseAskE6, rows[i].fAskE6) : (rows[i].baseBidE6, rows[i].fBidE6);
-            uint256 feeE6 = VolatileFeeCalculation.midBlockContinuingFee(
+            uint256 feeE6 = VolatileFeeCalculation.displacementContinuingFee(
                 baselineFeeE6, _abs(rows[i].dvE6), MID_FADE_RATE_E6, MAX_MID_FADE_E6
             );
             assertGeWithinPip(feeE6, expectedFeeE6, _label(rows[i].name, "f continuing"));

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFeeCalculation} from "../../../../src/volatile/libraries/VolatileFeeCalculation.sol";
-import {VolatileHookState} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileVectorTestBase} from "../VolatileVectorTestBase.sol";
 
 /// @title VolatileFeeCalculationS3Test
@@ -59,11 +59,10 @@ contract VolatileFeeCalculationS3Test is VolatileVectorTestBase {
 
     function test_s3_newPermAndTempFee_fromNeutral() public view {
         Row[] memory rows = _rows();
-        VolatileHookState memory hookState = _hookState(SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6);
+        VolatileFeeConfig memory config = _feeConfig(SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6);
         for (uint256 i = 0; i < rows.length; i++) {
-            (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) = VolatileFeeCalculation.newPermAndTempFee(
-                hookState, NEUTRAL_PERM_FEE_E6, _abs(rows[i].piE6), rows[i].piE6 > 0
-            );
+            (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) =
+                _newPermAndBaselines(config, NEUTRAL_PERM_FEE_E6, _abs(rows[i].piE6), rows[i].piE6 > 0);
             assertGeWithinPip(newAskPermFeeE6, rows[i].hAskE6, _label(_name(rows[i]), "hAsk"));
             assertGeWithinPip(askBaselineFeeE6, rows[i].fAskE6, _label(_name(rows[i]), "fAsk"));
             assertGeWithinPip(bidBaselineFeeE6, rows[i].fBidE6, _label(_name(rows[i]), "fBid"));

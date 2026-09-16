@@ -9,7 +9,7 @@ import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {
     VolatileFeeConfig,
-    VolatileHookState,
+    VolatileFeeState,
     IVolatileFeeConfiguration
 } from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileFeeCalculation} from "../../src/volatile/libraries/VolatileFeeCalculation.sol";
@@ -479,8 +479,6 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
         VolatileFeeConfig memory params = _defaultConfig();
 
-        // So the blockNumber assert is not trivially true.
-        _advanceBlocks(1);
         vm.expectEmit(true, false, false, true);
         emit FeeConfigUpdated(testPoolId, params);
         vm.prank(configManager);
@@ -491,19 +489,21 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     }
 
     function test_updateFeeConfig_resetsStateWithExistingSwapHistory() public {
-        VolatileHookState memory dirty;
-        dirty.blockNumber = uint48(block.number);
+        VolatileFeeState memory dirty;
+        dirty.blockNumber = 12_345; // nonzero, so the reset to 0 is observable
         dirty.sqrtPriceTopX96 = uint160(2 ** 96 + 1000);
         dirty.askPermFeeE6 = SEED_RESTING_SPREAD_E6;
-        dirty.askBaselineFeeE6 = SEED_RESTING_SPREAD_E6 + 750;
-        dirty.bidBaselineFeeE6 = 0;
+        dirty.tempFeeE6 = 750;
+        dirty.tempOnBid = true;
         feeConfigurationImplementation.setFeeState(testPoolId, dirty);
 
-        (uint48 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6,,) =
+        (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid) =
             feeConfigurationImplementation.feeState(testPoolId);
         assertEq(sqrtPriceTopX96, uint160(2 ** 96 + 1000));
         assertEq(askPermFeeE6, SEED_RESTING_SPREAD_E6);
-        assertEq(blockNumber, uint48(block.number));
+        assertEq(tempFeeE6, 750);
+        assertTrue(tempOnBid);
+        assertEq(blockNumber, 12_345);
 
         _advanceBlocks(100);
         vm.prank(configManager);
@@ -512,21 +512,15 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertStateIsNeutral(testPoolId, RESTING_SPREAD_E6);
     }
 
-    /// `VolatileHook.invariants.t.sol` states side equivalence against this tie-break.
     function test_updateFeeConfig_oddRestingSpreadPutsSparePipOnBid() public {
         VolatileFeeConfig memory params = _configWithRestingSpread(RESTING_SPREAD_E6 + 1); // 901
 
         vm.prank(configManager);
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
-        (,, uint24 askPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) =
-            feeConfigurationImplementation.feeState(testPoolId);
-        assertEq(askPermFeeE6, NEUTRAL_FEE_E6);
-        assertEq(askBaselineFeeE6, NEUTRAL_FEE_E6);
-        assertEq(bidBaselineFeeE6, NEUTRAL_FEE_E6 + 1);
-
-        assertEq(uint256(askBaselineFeeE6) + bidBaselineFeeE6, params.restingSpreadE6);
-        assertEq(bidBaselineFeeE6 - askBaselineFeeE6, 1);
+        (,, uint24 askPermFeeE6,,) = feeConfigurationImplementation.feeState(testPoolId);
+        uint24 bidPermFeeE6 = params.restingSpreadE6 - askPermFeeE6; // feeState NatSpec: bid perm = RS - askPerm
+        assertEq(bidPermFeeE6 - askPermFeeE6, params.restingSpreadE6 % 2);
     }
 
     function test_updateFeeConfig_gas() public {
@@ -654,18 +648,12 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     }
 
     function _assertStateIsNeutral(PoolId poolId, uint24 restingSpreadE6) internal view {
-        (
-            uint48 blockNumber,
-            uint160 sqrtPriceTopX96,
-            uint24 askPermFeeE6,
-            uint24 askBaselineFeeE6,
-            uint24 bidBaselineFeeE6
-        ) = feeConfigurationImplementation.feeState(poolId);
-        uint24 halfE6 = restingSpreadE6 / 2;
-        assertEq(blockNumber, uint48(block.number), "blockNumber");
+        (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid) =
+            feeConfigurationImplementation.feeState(poolId);
+        assertEq(blockNumber, 0, "blockNumber");
         assertEq(sqrtPriceTopX96, 0, "sqrtPriceTopX96");
-        assertEq(askPermFeeE6, halfE6, "askPermFeeE6");
-        assertEq(askBaselineFeeE6, halfE6, "askBaselineFeeE6");
-        assertEq(bidBaselineFeeE6, restingSpreadE6 - halfE6, "bidBaselineFeeE6");
+        assertEq(askPermFeeE6, restingSpreadE6 / 2, "askPermFeeE6");
+        assertEq(tempFeeE6, 0, "tempFeeE6");
+        assertFalse(tempOnBid, "tempOnBid");
     }
 }

@@ -214,7 +214,8 @@ contract VolatileHookSwapTest is VolatilePairTestBase, Deployers {
         _openBlockAndDisplaceUp();
 
         bytes32 stateAfterOpen = _rawStateHash(poolId);
-        assertEq(_storedState(poolId).askBaselineFeeE6, NEUTRAL_FEE_E6, "baselines stay at the block open");
+        (uint24 askBaselineFeeE6,) = _storedBaselines(poolId);
+        assertEq(askBaselineFeeE6, NEUTRAL_FEE_E6, "baselines stay at the block open");
 
         (uint24 quotedBackrunE6, uint24 quotedContinuingE6) = hook.getFee(testPoolKey);
         assertEq(quotedContinuingE6, NEUTRAL_FEE_E6 + MAX_MID_FADE_E6, "continuing side capped at maxMidFade");

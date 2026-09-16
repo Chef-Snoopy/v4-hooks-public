@@ -4,7 +4,8 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
-import {VolatileHookState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeCalculation} from "../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 
 /// @title VolatileVectorTestBase
 /// @notice Shared scaffolding for the reference-generator vector suites under test/volatile/data/.
@@ -66,16 +67,31 @@ abstract contract VolatileVectorTestBase is Test {
         return string.concat(row, " ", column);
     }
 
-    function _hookState(uint24 skewRateE6, uint24 maxSkewStepE6, uint24 maxSkewE6)
+    function _feeConfig(uint24 skewRateE6, uint24 maxSkewStepE6, uint24 maxSkewE6)
         internal
         pure
-        returns (VolatileHookState memory hookState)
+        returns (VolatileFeeConfig memory config)
     {
-        hookState.restingSpreadE6 = RESTING_SPREAD_E6;
-        hookState.skewRateE6 = skewRateE6;
-        hookState.maxSkewStepE6 = maxSkewStepE6;
-        hookState.maxSkewE6 = maxSkewE6;
-        hookState.backrunThresholdE6 = BACKRUN_THRESHOLD_E6;
-        hookState.backrunCaptureFractionE6 = BACKRUN_CAPTURE_FRACTION_E6;
+        config.restingSpreadE6 = RESTING_SPREAD_E6;
+        config.skewRateE6 = skewRateE6;
+        config.maxSkewStepE6 = maxSkewStepE6;
+        config.maxSkewE6 = maxSkewE6;
+        config.backrunThresholdE6 = BACKRUN_THRESHOLD_E6;
+        config.backrunCaptureFractionE6 = BACKRUN_CAPTURE_FRACTION_E6;
+    }
+
+    /// @notice `newPermAndTempFee` composed with `baselineFee` per side: h_ask and the f columns for one block.
+    function _newPermAndBaselines(
+        VolatileFeeConfig memory config,
+        uint24 oldAskPermFeeE6,
+        uint256 blockPriceImpactE6,
+        bool blockPriceImpactUp
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
+        VolatileFeeState memory state;
+        (state.askPermFeeE6, state.tempFeeE6, state.tempOnBid) =
+            VolatileFeeCalculation.newPermAndTempFee(config, oldAskPermFeeE6, blockPriceImpactE6, blockPriceImpactUp);
+        newAskPermFeeE6 = state.askPermFeeE6;
+        askBaselineFeeE6 = VolatileFeeCalculation.baselineFee(state, config.restingSpreadE6, false);
+        bidBaselineFeeE6 = VolatileFeeCalculation.baselineFee(state, config.restingSpreadE6, true);
     }
 }

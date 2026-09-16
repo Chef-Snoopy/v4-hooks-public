@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFeeCalculation} from "../../../../src/volatile/libraries/VolatileFeeCalculation.sol";
-import {VolatileHookState} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileVectorTestBase} from "../VolatileVectorTestBase.sol";
 
 /// @title VolatileFeeCalculationS9Test
@@ -71,16 +71,15 @@ contract VolatileFeeCalculationS9Test is VolatileVectorTestBase {
     function test_s9_newPermAndTempFee_fromNeutral() public pure {
         Case[] memory cases = _cases();
         for (uint256 i = 0; i < cases.length; i++) {
-            VolatileHookState memory hookState;
-            hookState.restingSpreadE6 = cases[i].restingSpreadE6;
-            hookState.skewRateE6 = cases[i].skewRateE6;
-            hookState.maxSkewStepE6 = cases[i].maxSkewStepE6;
-            hookState.maxSkewE6 = cases[i].maxSkewE6;
-            hookState.backrunThresholdE6 = cases[i].backrunThresholdE6;
-            hookState.backrunCaptureFractionE6 = cases[i].backrunCaptureFractionE6;
-            (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) = VolatileFeeCalculation.newPermAndTempFee(
-                hookState, _neutralAskE6(cases[i]), cases[i].piE6, cases[i].piE6 > 0
-            );
+            VolatileFeeConfig memory config;
+            config.restingSpreadE6 = cases[i].restingSpreadE6;
+            config.skewRateE6 = cases[i].skewRateE6;
+            config.maxSkewStepE6 = cases[i].maxSkewStepE6;
+            config.maxSkewE6 = cases[i].maxSkewE6;
+            config.backrunThresholdE6 = cases[i].backrunThresholdE6;
+            config.backrunCaptureFractionE6 = cases[i].backrunCaptureFractionE6;
+            (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) =
+                _newPermAndBaselines(config, _neutralAskE6(cases[i]), cases[i].piE6, cases[i].piE6 > 0);
             assertGeWithinPip(newAskPermFeeE6, cases[i].hAskE6, _label(cases[i].name, "hAsk"));
             assertGeWithinPip(askBaselineFeeE6, cases[i].fAskE6, _label(cases[i].name, "fAsk"));
             assertGeWithinPip(bidBaselineFeeE6, cases[i].fBidE6, _label(cases[i].name, "fBid"));

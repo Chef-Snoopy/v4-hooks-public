@@ -5,7 +5,7 @@ import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
 import {VolatileHook} from "../../src/volatile/VolatileHook.sol";
 import {BaseDynamicFeeHook} from "../../src/base/BaseDynamicFeeHook.sol";
 import {BaseUUPSHook} from "../../src/base/BaseUUPSHook.sol";
-import {VolatileFeeConfig, VolatileHookState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
+import {VolatileFeeConfig, VolatileFeeState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileHookV2Mock} from "../mocks/VolatileHookV2Mock.sol";
 import {VolatileDifferentFlagsMock} from "../mocks/VolatileDifferentFlagsMock.sol";
 import {NotUUPSHookMock} from "../mocks/NotUUPSHookMock.sol";
@@ -154,7 +154,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
 
         PoolId poolId = testPoolKey.toId();
         VolatileFeeConfig memory configBefore = _storedConfig(poolId);
-        VolatileHookState memory stateBefore = _storedState(poolId);
+        VolatileFeeState memory stateBefore = _storedState(poolId);
         assertGt(stateBefore.sqrtPriceTopX96, 0, "the swap must have cached a block-open price");
 
         bytes32 rawStateBefore = _rawStateHash(poolId);

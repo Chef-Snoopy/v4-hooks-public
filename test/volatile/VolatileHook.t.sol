@@ -9,7 +9,7 @@ import {IDynamicFeeHook} from "../../src/interfaces/IDynamicFeeHook.sol";
 import {
     IVolatileFeeConfiguration,
     VolatileFeeConfig,
-    VolatileHookState
+    VolatileFeeState
 } from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {ImmutableState} from "@uniswap/v4-periphery/src/base/ImmutableState.sol";
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
@@ -138,7 +138,7 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
         );
     }
 
-    function test_storageLayout_hookStateAtDocumentedSlot() public {
+    function test_storageLayout_feeConfigAndFeeStateAtDocumentedSlots() public {
         vm.roll(1234);
         VolatileFeeConfig memory config = _distinctConfig();
         vm.prank(poolInitializer);
@@ -146,24 +146,29 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
 
         PoolId poolId = testPoolKey.toId();
 
-        uint256 rawState = uint256(vm.load(address(hook), _stateSlot(poolId, 0)));
-        assertEq(uint48(rawState), uint48(block.number));
-        assertEq(uint160(rawState >> 48), 0); // sqrtPriceTopX96
-        assertEq(uint24(rawState >> 208), 500); // askPermFeeE6
-        assertEq(uint24(rawState >> 232), 500); // askBaselineFeeE6
+        // feeState[poolId]: 40 + 160 + 24 + 24 + 8 = 256 bits
+        uint256 rawState = uint256(vm.load(address(hook), _stateSlot(poolId)));
+        assertEq(uint40(rawState), 0); // blockNumber: zeroed until the first swap
+        assertEq(uint160(rawState >> 40), 0); // sqrtPriceTopX96
+        assertEq(uint24(rawState >> 200), 500); // askPermFeeE6
+        assertEq(uint24(rawState >> 224), 0); // tempFeeE6
+        assertEq(uint8(rawState >> 248), 0); // tempOnBid
 
-        uint256 raw = uint256(vm.load(address(hook), _stateSlot(poolId, 1)));
-        assertEq(uint24(raw), 501); // bidBaselineFeeE6
-        assertEq(uint24(raw >> 24), config.restingSpreadE6);
-        assertEq(uint24(raw >> 48), config.backrunCaptureFractionE6);
-        assertEq(uint24(raw >> 72), config.midFadeRateE6);
-        assertEq(uint24(raw >> 96), config.maxMidFadeE6);
-        assertEq(uint24(raw >> 120), config.skewRateE6);
-        assertEq(uint24(raw >> 144), config.maxSkewStepE6);
-        assertEq(uint24(raw >> 168), config.maxSkewE6);
-        assertEq(uint24(raw >> 192), config.backrunThresholdE6);
+        // feeConfig[poolId]: the eight config fields in declaration order
+        uint256 raw = uint256(vm.load(address(hook), _configSlot(poolId)));
+        assertEq(uint24(raw), config.restingSpreadE6);
+        assertEq(uint24(raw >> 24), config.backrunCaptureFractionE6);
+        assertEq(uint24(raw >> 48), config.midFadeRateE6);
+        assertEq(uint24(raw >> 72), config.maxMidFadeE6);
+        assertEq(uint24(raw >> 96), config.skewRateE6);
+        assertEq(uint24(raw >> 120), config.maxSkewStepE6);
+        assertEq(uint24(raw >> 144), config.maxSkewE6);
+        assertEq(uint24(raw >> 168), config.backrunThresholdE6);
+        assertEq(raw >> 192, 0);
 
-        assertEq(uint256(vm.load(address(hook), _stateSlot(poolId, 2))), 0);
+        // each value is exactly one word
+        assertEq(uint256(vm.load(address(hook), bytes32(uint256(_stateSlot(poolId)) + 1))), 0);
+        assertEq(uint256(vm.load(address(hook), bytes32(uint256(_configSlot(poolId)) + 1))), 0);
     }
 
     // -------------------------------------------------------------------------
@@ -190,12 +195,15 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
             "config seeded verbatim"
         );
 
-        VolatileHookState memory state = _storedState(testPoolKey.toId());
-        assertEq(state.blockNumber, uint48(block.number));
+        VolatileFeeState memory state = _storedState(testPoolKey.toId());
+        assertEq(state.blockNumber, 0, "zeroed until the first swap");
         assertEq(state.sqrtPriceTopX96, 0);
         assertEq(state.askPermFeeE6, RESTING_SPREAD_E6 / 2);
-        assertEq(state.askBaselineFeeE6, RESTING_SPREAD_E6 / 2);
-        assertEq(state.bidBaselineFeeE6, RESTING_SPREAD_E6 / 2);
+        assertEq(state.tempFeeE6, 0);
+        assertFalse(state.tempOnBid);
+        (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _storedBaselines(testPoolKey.toId());
+        assertEq(askBaselineFeeE6, RESTING_SPREAD_E6 / 2);
+        assertEq(bidBaselineFeeE6, RESTING_SPREAD_E6 / 2);
     }
 
     function test_initializePool_revertsWithMustUseDynamicFee() public {
@@ -363,12 +371,15 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
         assertEq(stored.maxSkewE6, config.maxSkewE6);
         assertEq(stored.backrunThresholdE6, config.backrunThresholdE6);
 
-        VolatileHookState memory state = _storedState(poolId);
-        assertEq(state.blockNumber, uint48(block.number));
+        VolatileFeeState memory state = _storedState(poolId);
+        assertEq(state.blockNumber, 0, "zeroed until the first swap");
         assertEq(state.sqrtPriceTopX96, 0);
         assertEq(state.askPermFeeE6, 500);
-        assertEq(state.askBaselineFeeE6, 500);
-        assertEq(state.bidBaselineFeeE6, 501);
+        assertEq(state.tempFeeE6, 0);
+        assertFalse(state.tempOnBid);
+        (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _storedBaselines(poolId);
+        assertEq(askBaselineFeeE6, 500);
+        assertEq(bidBaselineFeeE6, 501);
     }
 
     function test_feeConfigAndFeeState_zeroForUntouchedPool() public {
@@ -379,7 +390,7 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
             keccak256(abi.encode(_storedConfig(untouched))),
             keccak256(abi.encode(VolatileFeeConfig(0, 0, 0, 0, 0, 0, 0, 0)))
         );
-        VolatileHookState memory zeroState;
+        VolatileFeeState memory zeroState;
         assertEq(keccak256(abi.encode(_storedState(untouched))), keccak256(abi.encode(zeroState)));
 
         vm.prank(configManager);
