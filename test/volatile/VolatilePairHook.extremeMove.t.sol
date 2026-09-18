@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
-import {VolatileHook} from "../../src/volatile/VolatileHook.sol";
+import {VolatilePairHook} from "../../src/volatile/VolatilePairHook.sol";
 import {BaseDynamicFeeHook} from "../../src/base/BaseDynamicFeeHook.sol";
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
 import {Constants} from "@uniswap/v4-core/test/utils/Constants.sol";
@@ -21,7 +21,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {ERC1967Proxy as _ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// Real-PoolManager swaps at price ratios above 2**24 pips, where the fee sits on its MAX_HOOK_FEE_E6 clamp.
-contract VolatileHookExtremeMoveTest is VolatilePairTestBase, Deployers {
+contract VolatilePairHookExtremeMoveTest is VolatilePairTestBase, Deployers {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
@@ -41,8 +41,8 @@ contract VolatileHookExtremeMoveTest is VolatilePairTestBase, Deployers {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        VolatileHook impl = new VolatileHook(manager);
-        hook = VolatileHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
+        VolatilePairHook impl = new VolatilePairHook(manager);
+        hook = VolatilePairHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
         deployCodeTo(
             "ERC1967Proxy.sol:ERC1967Proxy",
             abi.encode(

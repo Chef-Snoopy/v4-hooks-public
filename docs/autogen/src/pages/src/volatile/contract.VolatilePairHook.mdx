@@ -1,15 +1,15 @@
 ---
-title: "VolatileHook"
+title: "VolatilePairHook"
 description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads state, calls it, and stores."
 ---
 
-# VolatileHook
+# VolatilePairHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/VolatileHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/fe085a56078e89250f2b48a1516bf870883ccc6b/src/volatile/VolatilePairHook.sol)
 
-**Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatileHook](/src/volatile/interfaces/interface.IVolatileHook)
+**Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatilePairHook](/src/volatile/interfaces/interface.IVolatilePairHook)
 
-**Title:** VolatileHook
+**Title:** VolatilePairHook
 
 Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the
 registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads

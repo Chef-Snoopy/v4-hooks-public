@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {VolatileFeeConfiguration} from "./base/VolatileFeeConfiguration.sol";
 import {VolatileFeeCalculation} from "./libraries/VolatileFeeCalculation.sol";
-import {IVolatileHook} from "./interfaces/IVolatileHook.sol";
+import {IVolatilePairHook} from "./interfaces/IVolatilePairHook.sol";
 import {IDynamicFeeHook} from "../interfaces/IDynamicFeeHook.sol";
 import {BaseDynamicFeeHook} from "../base/BaseDynamicFeeHook.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "./interfaces/IVolatileFeeConfiguration.sol";
@@ -16,13 +16,13 @@ import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/type
 import {LPFeeLibrary} from "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
-/// @title VolatileHook
+/// @title VolatilePairHook
 /// @notice Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the
 ///         registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads
 ///         state, calls it, and stores.
 /// @dev Ask = a buy = zeroForOne false; bid = a sell = zeroForOne true.
 /// @custom:security-contact security@uniswap.org
-contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatileHook {
+contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatilePairHook {
     using LPFeeLibrary for uint24;
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
@@ -30,7 +30,7 @@ contract VolatileHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatile
     /// @param _manager Uniswap v4 PoolManager
     constructor(IPoolManager _manager) BaseDynamicFeeHook(_manager) {}
 
-    /// @inheritdoc IVolatileHook
+    /// @inheritdoc IVolatilePairHook
     function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, VolatileFeeConfig calldata feeConfiguration)
         external
         onlyRole(POOL_INITIALIZER_ROLE)

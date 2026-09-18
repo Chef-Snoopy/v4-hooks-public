@@ -68,9 +68,9 @@ src/utils/library.HookMiner.mdx
 src/utils/library.HookMinerCreate3.mdx
 src/utils/library.PrefacedHookMiner.mdx
 src/volatile/base/abstract.VolatileFeeConfiguration.mdx
-src/volatile/contract.VolatileHook.mdx
+src/volatile/contract.VolatilePairHook.mdx
 src/volatile/interfaces/interface.IVolatileFeeConfiguration.mdx
-src/volatile/interfaces/interface.IVolatileHook.mdx
+src/volatile/interfaces/interface.IVolatilePairHook.mdx
 src/volatile/interfaces/struct.VolatileFeeConfig.mdx
 src/volatile/interfaces/struct.VolatileFeeState.mdx
 src/volatile/libraries/library.VolatileFeeCalculation.mdx

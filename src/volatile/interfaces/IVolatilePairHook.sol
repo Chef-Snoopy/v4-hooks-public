@@ -5,8 +5,8 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {VolatileFeeConfig} from "./IVolatileFeeConfiguration.sol";
 import {IDynamicFeeHook} from "../../interfaces/IDynamicFeeHook.sol";
 
-/// @notice Interface for VolatileHook
-interface IVolatileHook is IDynamicFeeHook {
+/// @notice Interface for VolatilePairHook
+interface IVolatilePairHook is IDynamicFeeHook {
     /// @notice Thrown when poolKey.fee is not the dynamic-fee sentinel
     /// @param lpFee The fee that was provided
     error MustUseDynamicFee(uint24 lpFee);

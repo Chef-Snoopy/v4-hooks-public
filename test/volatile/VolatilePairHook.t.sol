@@ -2,9 +2,9 @@
 pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
-import {VolatileHook} from "../../src/volatile/VolatileHook.sol";
+import {VolatilePairHook} from "../../src/volatile/VolatilePairHook.sol";
 import {BaseDynamicFeeHook} from "../../src/base/BaseDynamicFeeHook.sol";
-import {IVolatileHook} from "../../src/volatile/interfaces/IVolatileHook.sol";
+import {IVolatilePairHook} from "../../src/volatile/interfaces/IVolatilePairHook.sol";
 import {IDynamicFeeHook} from "../../src/interfaces/IDynamicFeeHook.sol";
 import {
     IVolatileFeeConfiguration,
@@ -29,21 +29,21 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-/// VolatileHook through its `ERC1967Proxy` against a real PoolManager. `setUp` leaves `testPoolKey` uninitialized.
-contract VolatileHookTest is VolatilePairTestBase, Deployers {
+/// VolatilePairHook through its `ERC1967Proxy` against a real PoolManager. `setUp` leaves `testPoolKey` uninitialized.
+contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
-    VolatileHook internal impl;
+    VolatilePairHook internal impl;
     address internal other = makeAddr("other");
     PoolKey internal unusedPoolKey;
 
     function setUp() public override {
         deployFreshManagerAndRouters();
 
-        impl = new VolatileHook(manager);
+        impl = new VolatilePairHook(manager);
 
-        hook = VolatileHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
+        hook = VolatilePairHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
         deployCodeTo(
             "ERC1967Proxy.sol:ERC1967Proxy",
             abi.encode(
@@ -180,7 +180,7 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
         VolatileFeeConfig memory config = _defaultConfig();
 
         vm.expectEmit(true, false, false, true, address(hook));
-        emit IVolatileHook.PoolInitialized(testPoolKey, Constants.SQRT_PRICE_1_1, config);
+        emit IVolatilePairHook.PoolInitialized(testPoolKey, Constants.SQRT_PRICE_1_1, config);
         vm.prank(poolInitializer);
         int24 tick = hook.initializePool(testPoolKey, Constants.SQRT_PRICE_1_1, config);
 
@@ -211,7 +211,7 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
         staticFeeKey.fee = LPFeeLibrary.MAX_LP_FEE;
 
         vm.prank(poolInitializer);
-        vm.expectRevert(abi.encodeWithSelector(IVolatileHook.MustUseDynamicFee.selector, LPFeeLibrary.MAX_LP_FEE));
+        vm.expectRevert(abi.encodeWithSelector(IVolatilePairHook.MustUseDynamicFee.selector, LPFeeLibrary.MAX_LP_FEE));
         hook.initializePool(staticFeeKey, Constants.SQRT_PRICE_1_1, _defaultConfig());
     }
 
@@ -220,7 +220,7 @@ contract VolatileHookTest is VolatilePairTestBase, Deployers {
         foreignHookKey.hooks = IHooks(address(impl));
 
         vm.prank(poolInitializer);
-        vm.expectRevert(abi.encodeWithSelector(IVolatileHook.InvalidHookAddress.selector, address(impl)));
+        vm.expectRevert(abi.encodeWithSelector(IVolatilePairHook.InvalidHookAddress.selector, address(impl)));
         hook.initializePool(foreignHookKey, Constants.SQRT_PRICE_1_1, _defaultConfig());
     }
 

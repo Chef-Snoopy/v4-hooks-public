@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
-import {VolatileHook} from "../../src/volatile/VolatileHook.sol";
+import {VolatilePairHook} from "../../src/volatile/VolatilePairHook.sol";
 import {BaseDynamicFeeHook} from "../../src/base/BaseDynamicFeeHook.sol";
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
 import {Constants} from "@uniswap/v4-core/test/utils/Constants.sol";
@@ -23,7 +23,7 @@ import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/Pool
 import {ERC1967Proxy as _ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// End-to-end swaps through a real PoolManager. Fees are measured, not inferred from output.
-contract VolatileHookSwapTest is VolatilePairTestBase, Deployers {
+contract VolatilePairHookSwapTest is VolatilePairTestBase, Deployers {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
@@ -41,16 +41,16 @@ contract VolatileHookSwapTest is VolatilePairTestBase, Deployers {
     int256 internal constant OVERSIZED_AMOUNT = 1e22;
     uint256 internal constant DISPLACED_PRICE_E6 = 1_010_000;
 
-    VolatileHook internal impl;
+    VolatilePairHook internal impl;
     PoolKey internal hooklessPoolKey;
 
     function setUp() public override {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        impl = new VolatileHook(manager);
+        impl = new VolatilePairHook(manager);
 
-        hook = VolatileHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
+        hook = VolatilePairHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
         deployCodeTo(
             "ERC1967Proxy.sol:ERC1967Proxy",
             abi.encode(

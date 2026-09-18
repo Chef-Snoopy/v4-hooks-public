@@ -17,7 +17,7 @@ import {IDynamicFeeHook} from "../../src/interfaces/IDynamicFeeHook.sol";
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
 import {VolatileFeeConfigurationImplementation} from "./base/VolatileFeeConfigurationImplementation.sol";
 
-/// The role and PoolNotInitialized reverts deliberately overlap `VolatileHook.t.sol`, which owns the cases needing a
+/// The role and PoolNotInitialized reverts deliberately overlap `VolatilePairHook.t.sol`, which owns the cases needing a
 /// real pool.
 contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     using PoolIdLibrary for PoolKey;

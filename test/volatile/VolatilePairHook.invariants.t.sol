@@ -9,7 +9,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 
 /// Sequence properties with no unit counterpart, on the base's mocked PoolManager.
-contract VolatileHookInvariantsTest is VolatilePairTestBase {
+contract VolatilePairHookInvariantsTest is VolatilePairTestBase {
     using PoolIdLibrary for PoolKey;
 
     struct SwapNoise {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFuzzTestBase} from "./VolatileFuzzTestBase.sol";
-import {VolatileHook} from "../../../src/volatile/VolatileHook.sol";
+import {VolatilePairHook} from "../../../src/volatile/VolatilePairHook.sol";
 import {BaseDynamicFeeHook} from "../../../src/base/BaseDynamicFeeHook.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
@@ -45,7 +45,7 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
             | Hooks.AFTER_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
     );
 
-    VolatileHook public hook;
+    VolatilePairHook public hook;
 
     address internal configManager = makeAddr("configManager");
     address internal poolInitializer = makeAddr("poolInitializer");
@@ -60,7 +60,7 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
     }
 
     function setUp() public virtual {
-        VolatileHook impl = new VolatileHook(IPoolManager(address(this)));
+        VolatilePairHook impl = new VolatilePairHook(IPoolManager(address(this)));
         address proxyAddress = address((uint160(type(uint160).max) & ~Hooks.ALL_HOOK_MASK) | HOOK_FLAGS);
         deployCodeTo(
             "ERC1967Proxy.sol:ERC1967Proxy",
@@ -69,7 +69,7 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
             ),
             proxyAddress
         );
-        hook = VolatileHook(proxyAddress);
+        hook = VolatilePairHook(proxyAddress);
 
         testPoolKey = PoolKey({
             currency0: Currency.wrap(address(0)),

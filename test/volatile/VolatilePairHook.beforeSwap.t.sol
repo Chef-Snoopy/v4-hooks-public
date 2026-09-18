@@ -19,7 +19,7 @@ import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 
 /// `beforeSwap` / `getFee` on the base's mocked PoolManager. Exact fees only where price rounding cannot move them.
-contract VolatileHookBeforeSwapTest is VolatilePairTestBase {
+contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 

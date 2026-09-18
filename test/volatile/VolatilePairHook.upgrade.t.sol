@@ -2,11 +2,11 @@
 pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
-import {VolatileHook} from "../../src/volatile/VolatileHook.sol";
+import {VolatilePairHook} from "../../src/volatile/VolatilePairHook.sol";
 import {BaseDynamicFeeHook} from "../../src/base/BaseDynamicFeeHook.sol";
 import {BaseUUPSHook} from "../../src/base/BaseUUPSHook.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
-import {VolatileHookV2Mock} from "../mocks/VolatileHookV2Mock.sol";
+import {VolatilePairHookV2Mock} from "../mocks/VolatilePairHookV2Mock.sol";
 import {VolatileDifferentFlagsMock} from "../mocks/VolatileDifferentFlagsMock.sol";
 import {NotUUPSHookMock} from "../mocks/NotUUPSHookMock.sol";
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
@@ -25,22 +25,22 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 // Imported only so forge builds the artifact `deployCodeTo` loads by name.
 import {ERC1967Proxy as _ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-/// UUPS mechanics of BaseUUPSHook / BaseDynamicFeeHook through VolatileHook.
-contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
+/// UUPS mechanics of BaseUUPSHook / BaseDynamicFeeHook through VolatilePairHook.
+contract VolatilePairHookUpgradeTest is VolatilePairTestBase, Deployers {
     using PoolIdLibrary for PoolKey;
 
     event Upgraded(address indexed implementation); // ERC1967
 
-    VolatileHook internal impl;
+    VolatilePairHook internal impl;
     address internal other = makeAddr("other");
 
     function setUp() public override {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
-        impl = new VolatileHook(manager);
+        impl = new VolatilePairHook(manager);
 
-        hook = VolatileHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
+        hook = VolatilePairHook(address(uint160(uint256(type(uint160).max) & clearAllHookPermissionsMask | HOOK_FLAGS)));
         deployCodeTo(
             "ERC1967Proxy.sol:ERC1967Proxy",
             abi.encode(
@@ -61,11 +61,11 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
         hook.initializePool(testPoolKey, Constants.SQRT_PRICE_1_1, _defaultConfig());
     }
 
-    function _upgradeToV2() internal returns (VolatileHookV2Mock v2) {
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+    function _upgradeToV2() internal returns (VolatilePairHookV2Mock v2) {
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.prank(owner);
         hook.upgradeToAndCall(address(v2Impl), "");
-        v2 = VolatileHookV2Mock(address(hook));
+        v2 = VolatilePairHookV2Mock(address(hook));
     }
 
     function _addLiquidity(PoolKey memory key) internal {
@@ -79,7 +79,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     // -------------------------------------------------------------------------
 
     function test_upgrade_revertsForNonAdmin() public {
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         bytes32 adminRole = hook.DEFAULT_ADMIN_ROLE();
         vm.prank(other);
         vm.expectRevert(
@@ -89,7 +89,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     }
 
     function test_upgrade_revertsForConfigManagerAndPoolInitializer() public {
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         bytes32 adminRole = hook.DEFAULT_ADMIN_ROLE();
 
         vm.prank(configManager);
@@ -130,7 +130,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
 
     function test_upgrade_revertsForWrongPoolManager() public {
         PoolManager otherManager = new PoolManager(address(this));
-        VolatileHookV2Mock badImpl = new VolatileHookV2Mock(otherManager);
+        VolatilePairHookV2Mock badImpl = new VolatilePairHookV2Mock(otherManager);
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(BaseUUPSHook.InvalidPoolManager.selector, address(otherManager)));
         hook.upgradeToAndCall(address(badImpl), "");
@@ -159,7 +159,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
 
         bytes32 rawStateBefore = _rawStateHash(poolId);
 
-        VolatileHookV2Mock v2 = _upgradeToV2();
+        VolatilePairHookV2Mock v2 = _upgradeToV2();
 
         assertEq(v2.version(), 2, "new logic must be active");
         assertTrue(v2.hasRole(v2.DEFAULT_ADMIN_ROLE(), owner));
@@ -250,7 +250,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     }
 
     function test_upgradeToAndCall_revertsOnBareImplementation() public {
-        VolatileHook newImpl = new VolatileHook(manager);
+        VolatilePairHook newImpl = new VolatilePairHook(manager);
         vm.expectRevert(UUPSUpgradeable.UUPSUnauthorizedCallContext.selector);
         impl.upgradeToAndCall(address(newImpl), "");
     }
@@ -268,7 +268,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
         hook.revokeRole(adminRole, owner);
         vm.stopPrank();
 
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, owner, adminRole)
@@ -277,7 +277,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
 
         vm.prank(newAdmin);
         hook.upgradeToAndCall(address(v2Impl), "");
-        assertEq(VolatileHookV2Mock(address(hook)).version(), 2);
+        assertEq(VolatilePairHookV2Mock(address(hook)).version(), 2);
     }
 
     function test_renounceAdmin_freezesUpgrades() public {
@@ -285,7 +285,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
         vm.prank(owner);
         hook.renounceRole(adminRole, owner);
 
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, owner, adminRole)
@@ -304,7 +304,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     // -------------------------------------------------------------------------
 
     function test_upgrade_emitsUpgraded() public {
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.expectEmit(true, false, false, false, address(hook));
         emit Upgraded(address(v2Impl));
         vm.prank(owner);
@@ -314,11 +314,11 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     function test_upgradeToAndCall_initializesV2State() public {
         VolatileFeeConfig memory configBefore = _storedConfig(testPoolKey.toId());
 
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.prank(owner);
-        hook.upgradeToAndCall(address(v2Impl), abi.encodeCall(VolatileHookV2Mock.initializeV2, (42)));
+        hook.upgradeToAndCall(address(v2Impl), abi.encodeCall(VolatilePairHookV2Mock.initializeV2, (42)));
 
-        VolatileHookV2Mock v2 = VolatileHookV2Mock(address(hook));
+        VolatilePairHookV2Mock v2 = VolatilePairHookV2Mock(address(hook));
         assertEq(v2.newValue(), 42);
         assertEq(v2.version(), 2);
         assertEq(
@@ -332,7 +332,7 @@ contract VolatileHookUpgradeTest is VolatilePairTestBase, Deployers {
     }
 
     function test_upgrade_gas() public {
-        VolatileHookV2Mock v2Impl = new VolatileHookV2Mock(manager);
+        VolatilePairHookV2Mock v2Impl = new VolatilePairHookV2Mock(manager);
         vm.prank(owner);
         hook.upgradeToAndCall(address(v2Impl), "");
         vm.snapshotGasLastCall("upgradeToAndCall");
