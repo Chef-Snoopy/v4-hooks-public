@@ -36,7 +36,7 @@ contract VolatileFeeCalculationS9Test is VolatileVectorTestBase {
             bool up = cases[i].piE6 > 0;
             uint256 newLeanPermFeeE6 = VolatileFeeCalculation.newPermanentFee(
                 up ? _neutralAskE6(cases[i]) : _neutralBidE6(cases[i]),
-                cases[i].piE6,
+                _moveFromE6(cases[i].piE6, up),
                 cases[i].skewRateE6,
                 cases[i].maxSkewStepE6,
                 cases[i].maxSkewE6
@@ -55,12 +55,16 @@ contract VolatileFeeCalculationS9Test is VolatileVectorTestBase {
             bool up = cases[i].piE6 > 0;
             uint24 oldLeanPermFeeE6 = up ? _neutralAskE6(cases[i]) : _neutralBidE6(cases[i]);
             uint24 newLeanPermFeeE6 = VolatileFeeCalculation.newPermanentFee(
-                oldLeanPermFeeE6, cases[i].piE6, cases[i].skewRateE6, cases[i].maxSkewStepE6, cases[i].maxSkewE6
+                oldLeanPermFeeE6,
+                _moveFromE6(cases[i].piE6, up),
+                cases[i].skewRateE6,
+                cases[i].maxSkewStepE6,
+                cases[i].maxSkewE6
             );
             uint256 tempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
                 newLeanPermFeeE6,
                 oldLeanPermFeeE6,
-                cases[i].piE6,
+                _moveFromE6(cases[i].piE6, up),
                 cases[i].backrunCaptureFractionE6,
                 cases[i].backrunThresholdE6
             );

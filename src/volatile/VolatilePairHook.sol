@@ -7,6 +7,7 @@ import {IVolatilePairHook} from "./interfaces/IVolatilePairHook.sol";
 import {IDynamicFeeHook} from "../interfaces/IDynamicFeeHook.sol";
 import {BaseDynamicFeeHook} from "../base/BaseDynamicFeeHook.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "./interfaces/IVolatileFeeConfiguration.sol";
+import {RelativeMove} from "./libraries/RelativeMoveLibrary.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
@@ -118,11 +119,10 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         // Otherwise, cache the cached pool state
         // Update fee states only when there's a previous price to compare against
         if (poolState.sqrtPriceTopX96 != 0) {
-            (uint256 blockPriceImpactE6, bool blockPriceImpactUp) =
-                VolatileFeeCalculation.relativeMoveE6(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
-            (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) = VolatileFeeCalculation.newPermAndTempFee(
-                config, poolState.askPermFeeE6, blockPriceImpactE6, blockPriceImpactUp
-            );
+            RelativeMove blockPriceImpact =
+                VolatileFeeCalculation.relativeMove(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
+            (poolState.askPermFeeE6, poolState.tempFeeE6, poolState.tempOnBid) =
+                VolatileFeeCalculation.newPermAndTempFee(config, poolState.askPermFeeE6, blockPriceImpact);
         }
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
@@ -141,21 +141,21 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         uint160 _currentSqrtPriceX96,
         bool _zeroForOne
     ) private pure returns (uint24) {
-        (uint256 displacementFromTopE6, bool displacedUp) = VolatileFeeCalculation.relativeMoveE6(
+        RelativeMove displacementFromTop = VolatileFeeCalculation.relativeMove(
             _currentSqrtPriceX96, _poolState.sqrtPriceTopX96
         );
         // A sell (zeroForOne) pays the bid baseline, a buy pays the ask baseline.
         uint24 baselineFeeE6 = VolatileFeeCalculation.baselineFee(_poolState, _config.restingSpreadE6, _zeroForOne);
 
-        if (_zeroForOne == displacedUp) {
+        if (_zeroForOne == displacementFromTop.increased()) {
             // Trading against the displacement is a backrun.
             return VolatileFeeCalculation.displacementBackrunFee(
-                baselineFeeE6, displacementFromTopE6, _config.backrunCaptureFractionE6
+                baselineFeeE6, displacementFromTop, _config.backrunCaptureFractionE6
             );
         } else {
             // Trading in the same direction the displacement is a continuation, we apply a trend fee
             return VolatileFeeCalculation.displacementContinuingFee(
-                baselineFeeE6, displacementFromTopE6, _config.midFadeRateE6, _config.maxMidFadeE6
+                baselineFeeE6, displacementFromTop, _config.midFadeRateE6, _config.maxMidFadeE6
             );
         }
     }

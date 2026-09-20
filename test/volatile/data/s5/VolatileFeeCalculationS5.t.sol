@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFeeCalculation} from "../../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {RelativeMove} from "../../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileVectorTestBase} from "../VolatileVectorTestBase.sol";
 
@@ -30,14 +31,14 @@ contract VolatileFeeCalculationS5Test is VolatileVectorTestBase {
         uint256 fBidE6;
     }
 
-    function test_s5_relativeMoveE6_matchesPI() public view {
+    function test_s5_relativeMove_matchesPI() public view {
         Row[] memory rows = _rows();
         for (uint256 i = 1; i < rows.length; i++) {
-            (uint256 moveE6, bool increased) = VolatileFeeCalculation.relativeMoveE6(
+            RelativeMove move = VolatileFeeCalculation.relativeMove(
                 _sqrtPriceX96(rows[i].priceE4, PRICE_ONE_E4), _sqrtPriceX96(rows[i - 1].priceE4, PRICE_ONE_E4)
             );
-            assertGeWithinPip(moveE6, _abs(rows[i].piE6), _label(_name(rows[i]), "PI"));
-            assertEq(increased, rows[i].piE6 > 0, _label(_name(rows[i]), "direction"));
+            assertMoveMatchesPI(move, _abs(rows[i].piE6), _label(_name(rows[i]), "PI"));
+            assertEq(move.increased(), rows[i].piE6 > 0, _label(_name(rows[i]), "direction"));
         }
     }
 
@@ -47,7 +48,7 @@ contract VolatileFeeCalculationS5Test is VolatileVectorTestBase {
             bool up = rows[i].piE6 > 0;
             uint256 newLeanPermFeeE6 = VolatileFeeCalculation.newPermanentFee(
                 up ? rows[i - 1].hAskE6 : rows[i - 1].hBidE6,
-                _abs(rows[i].piE6),
+                _moveFromE6(_abs(rows[i].piE6), up),
                 SKEW_RATE_E6,
                 MAX_SKEW_STEP_E6,
                 MAX_SKEW_E6
@@ -70,7 +71,11 @@ contract VolatileFeeCalculationS5Test is VolatileVectorTestBase {
                 ? (rows[i].hAskE6, rows[i - 1].hAskE6, rows[i].gBidE6)
                 : (rows[i].hBidE6, rows[i - 1].hBidE6, rows[i].gAskE6);
             uint256 tempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
-                newLeanE6, oldLeanE6, _abs(rows[i].piE6), BACKRUN_CAPTURE_FRACTION_E6, BACKRUN_THRESHOLD_E6
+                newLeanE6,
+                oldLeanE6,
+                _moveFromE6(_abs(rows[i].piE6), up),
+                BACKRUN_CAPTURE_FRACTION_E6,
+                BACKRUN_THRESHOLD_E6
             );
             assertGeWithinPip(tempFeeE6, expectedBackrunTemp, _label(_name(rows[i]), "g backrun"));
         }
@@ -94,12 +99,12 @@ contract VolatileFeeCalculationS5Test is VolatileVectorTestBase {
         uint24 askPermFeeE6 = rows[0].hAskE6;
         uint160 sqrtPriceTopX96 = _sqrtPriceX96(rows[0].priceE4, PRICE_ONE_E4);
         for (uint256 i = 1; i < rows.length; i++) {
-            (uint256 piE6, bool up) =
-                VolatileFeeCalculation.relativeMoveE6(_sqrtPriceX96(rows[i].priceE4, PRICE_ONE_E4), sqrtPriceTopX96);
-            assertGeWithinPip(piE6, _abs(rows[i].piE6), _label(_name(rows[i]), "PI"));
+            RelativeMove move =
+                VolatileFeeCalculation.relativeMove(_sqrtPriceX96(rows[i].priceE4, PRICE_ONE_E4), sqrtPriceTopX96);
+            assertMoveMatchesPI(move, _abs(rows[i].piE6), _label(_name(rows[i]), "PI"));
 
             (uint24 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) =
-                _newPermAndBaselines(config, askPermFeeE6, piE6, up);
+                _newPermAndBaselines(config, askPermFeeE6, move);
             assertGeWithinPip(newAskPermFeeE6, rows[i].hAskE6, _label(_name(rows[i]), "hAsk"));
             assertGeWithinPip(askBaselineFeeE6, rows[i].fAskE6, _label(_name(rows[i]), "fAsk"));
             assertGeWithinPip(bidBaselineFeeE6, rows[i].fBidE6, _label(_name(rows[i]), "fBid"));

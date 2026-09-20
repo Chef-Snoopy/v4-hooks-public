@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
 import {VolatileFeeCalculation} from "../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {RelativeMove, RelativeMoveLibrary} from "../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 
 /// @title VolatileVectorTestBase
@@ -23,7 +24,7 @@ abstract contract VolatileVectorTestBase is Test {
     uint24 internal constant BACKRUN_CAPTURE_FRACTION_E6 = 500_000;
     uint24 internal constant NEUTRAL_PERM_FEE_E6 = RESTING_SPREAD_E6 / 2;
 
-    /// @notice `expected <= actual <= expected + ROUNDING_TOLERANCE_E6`: the library truncates to whole
+    /// @notice `expected <= actual <= expected + ROUNDING_TOLERANCE_E6`: the library rounds up to whole
     ///         pips, so it may land one pip above a floored reference, never below.
     function assertGeWithinPip(uint256 actual, uint256 expected, string memory label) internal pure {
         assertGe(actual, expected, string.concat(label, ": below reference"));
@@ -67,6 +68,19 @@ abstract contract VolatileVectorTestBase is Test {
         return string.concat(row, " ", column);
     }
 
+    /// @notice The exact ratio `piE6 / 1e6` with a direction: a CSV PI cell as the library's input.
+    function _moveFromE6(uint256 piE6, bool up) internal pure returns (RelativeMove) {
+        return RelativeMoveLibrary.pack(piE6, VolatileFeeCalculation.ONE_E6, up);
+    }
+
+    /// @notice `piE6 - 1 <= move < piE6 + 1`, compared as exact ratios. The generator floors PI from unrounded
+    ///         prices but the price columns carry 3 or 4 decimals, which moves the ratio rebuilt from them by up
+    ///         to a third of a pip either way. s4 block 4, s5 block 2 and s8 block 4 land just under their cell.
+    function assertMoveMatchesPI(RelativeMove move, uint256 piE6, string memory label) internal pure {
+        assertTrue(piE6 == 0 || move.gte(piE6 - 1), string.concat(label, ": a pip or more under"));
+        assertFalse(move.gte(piE6 + 1), string.concat(label, ": a pip or more over"));
+    }
+
     function _feeConfig(uint24 skewRateE6, uint24 maxSkewStepE6, uint24 maxSkewE6)
         internal
         pure
@@ -87,9 +101,17 @@ abstract contract VolatileVectorTestBase is Test {
         uint256 blockPriceImpactE6,
         bool blockPriceImpactUp
     ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
+        return _newPermAndBaselines(config, oldAskPermFeeE6, _moveFromE6(blockPriceImpactE6, blockPriceImpactUp));
+    }
+
+    function _newPermAndBaselines(
+        VolatileFeeConfig memory config,
+        uint24 oldAskPermFeeE6,
+        RelativeMove blockPriceImpact
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
         VolatileFeeState memory state;
         (state.askPermFeeE6, state.tempFeeE6, state.tempOnBid) =
-            VolatileFeeCalculation.newPermAndTempFee(config, oldAskPermFeeE6, blockPriceImpactE6, blockPriceImpactUp);
+            VolatileFeeCalculation.newPermAndTempFee(config, oldAskPermFeeE6, blockPriceImpact);
         newAskPermFeeE6 = state.askPermFeeE6;
         askBaselineFeeE6 = VolatileFeeCalculation.baselineFee(state, config.restingSpreadE6, false);
         bidBaselineFeeE6 = VolatileFeeCalculation.baselineFee(state, config.restingSpreadE6, true);

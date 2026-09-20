@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFeeCalculation} from "../../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {RelativeMove} from "../../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig} from "../../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileVectorTestBase} from "../VolatileVectorTestBase.sol";
 
@@ -29,14 +30,14 @@ contract VolatileFeeCalculationS1Test is VolatileVectorTestBase {
         uint256 fBidE6;
     }
 
-    function test_s1_relativeMoveE6_matchesPI() public view {
+    function test_s1_relativeMove_matchesPI() public view {
         Row[] memory rows = _rows();
         for (uint256 i = 1; i < rows.length; i++) {
-            (uint256 moveE6, bool increased) = VolatileFeeCalculation.relativeMoveE6(
+            RelativeMove move = VolatileFeeCalculation.relativeMove(
                 _sqrtPriceX96(rows[i].price, PRICE_ONE), _sqrtPriceX96(rows[i - 1].price, PRICE_ONE)
             );
-            assertGeWithinPip(moveE6, rows[i].piE6, _label(_name(rows[i]), "PI"));
-            assertEq(increased, rows[i].price > rows[i - 1].price, _label(_name(rows[i]), "direction"));
+            assertMoveMatchesPI(move, rows[i].piE6, _label(_name(rows[i]), "PI"));
+            assertEq(move.increased(), rows[i].price > rows[i - 1].price, _label(_name(rows[i]), "direction"));
         }
     }
 
@@ -46,7 +47,11 @@ contract VolatileFeeCalculationS1Test is VolatileVectorTestBase {
         for (uint256 i = 1; i < rows.length; i++) {
             bool up = rows[i].price > rows[i - 1].price;
             uint256 newLeanPermFeeE6 = VolatileFeeCalculation.newPermanentFee(
-                up ? rows[i - 1].hAskE6 : rows[i - 1].hBidE6, rows[i].piE6, SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6
+                up ? rows[i - 1].hAskE6 : rows[i - 1].hBidE6,
+                _moveFromE6(rows[i].piE6, up),
+                SKEW_RATE_E6,
+                MAX_SKEW_STEP_E6,
+                MAX_SKEW_E6
             );
             (uint256 newAskPermFeeE6, uint256 newBidPermFeeE6) = up
                 ? (newLeanPermFeeE6, RESTING_SPREAD_E6 - newLeanPermFeeE6)
@@ -65,7 +70,7 @@ contract VolatileFeeCalculationS1Test is VolatileVectorTestBase {
                 ? (rows[i].hAskE6, rows[i - 1].hAskE6, rows[i].gBidE6)
                 : (rows[i].hBidE6, rows[i - 1].hBidE6, rows[i].gAskE6);
             uint256 tempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
-                newLeanE6, oldLeanE6, rows[i].piE6, BACKRUN_CAPTURE_FRACTION_E6, BACKRUN_THRESHOLD_E6
+                newLeanE6, oldLeanE6, _moveFromE6(rows[i].piE6, up), BACKRUN_CAPTURE_FRACTION_E6, BACKRUN_THRESHOLD_E6
             );
             assertGeWithinPip(tempFeeE6, expectedBackrunTemp, _label(_name(rows[i]), "g backrun"));
         }
@@ -89,12 +94,12 @@ contract VolatileFeeCalculationS1Test is VolatileVectorTestBase {
         uint24 askPermFeeE6 = RESTING_SPREAD_E6 / 2;
         uint160 sqrtPriceTopX96 = _sqrtPriceX96(rows[0].price, PRICE_ONE);
         for (uint256 i = 1; i < rows.length; i++) {
-            (uint256 piE6, bool up) =
-                VolatileFeeCalculation.relativeMoveE6(_sqrtPriceX96(rows[i].price, PRICE_ONE), sqrtPriceTopX96);
-            assertGeWithinPip(piE6, rows[i].piE6, _label(_name(rows[i]), "PI"));
+            RelativeMove move =
+                VolatileFeeCalculation.relativeMove(_sqrtPriceX96(rows[i].price, PRICE_ONE), sqrtPriceTopX96);
+            assertMoveMatchesPI(move, rows[i].piE6, _label(_name(rows[i]), "PI"));
 
             (uint24 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) =
-                _newPermAndBaselines(config, askPermFeeE6, piE6, up);
+                _newPermAndBaselines(config, askPermFeeE6, move);
             assertGeWithinPip(newAskPermFeeE6, rows[i].hAskE6, _label(_name(rows[i]), "hAsk"));
             assertGeWithinPip(askBaselineFeeE6, rows[i].fAskE6, _label(_name(rows[i]), "fAsk"));
             assertGeWithinPip(bidBaselineFeeE6, rows[i].fBidE6, _label(_name(rows[i]), "fBid"));

@@ -31,7 +31,11 @@ contract VolatileFeeCalculationS2Test is VolatileVectorTestBase {
         Row[] memory rows = _rows();
         for (uint256 i = 0; i < rows.length; i++) {
             uint256 newLeanPermFeeE6 = VolatileFeeCalculation.newPermanentFee(
-                NEUTRAL_PERM_FEE_E6, _abs(rows[i].piE6), SKEW_RATE_E6, MAX_SKEW_STEP_E6, MAX_SKEW_E6
+                NEUTRAL_PERM_FEE_E6,
+                _moveFromE6(_abs(rows[i].piE6), rows[i].piE6 > 0),
+                SKEW_RATE_E6,
+                MAX_SKEW_STEP_E6,
+                MAX_SKEW_E6
             );
             (uint256 newAskPermFeeE6, uint256 newBidPermFeeE6) = rows[i].piE6 > 0
                 ? (newLeanPermFeeE6, RESTING_SPREAD_E6 - newLeanPermFeeE6)
@@ -49,7 +53,7 @@ contract VolatileFeeCalculationS2Test is VolatileVectorTestBase {
             uint256 tempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
                 newLeanPermFeeE6,
                 NEUTRAL_PERM_FEE_E6,
-                _abs(rows[i].piE6),
+                _moveFromE6(_abs(rows[i].piE6), rows[i].piE6 > 0),
                 BACKRUN_CAPTURE_FRACTION_E6,
                 BACKRUN_THRESHOLD_E6
             );

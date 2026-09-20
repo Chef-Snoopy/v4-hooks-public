@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {VolatileFuzzTestBase} from "../base/VolatileFuzzTestBase.sol";
 import {VolatileFeeCalculation} from "../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {RelativeMove} from "../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
@@ -15,8 +16,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
     uint160 internal constant MAX_SQRT_PRICE = TickMath.MAX_SQRT_PRICE;
     uint160 internal constant SQRT_PRICE_1_1 = Constants.SQRT_PRICE_1_1; // 2**96
 
-    /// relativeMoveE6's largest output, from the ratioX96 == 0 clamp. An unbounded pi would overflow rate * pi in
-    /// mulDivUp, which no relativeMoveE6 output can (rate < 2**24, pi < 2**116).
+    /// relativeMove's largest output in E6, from the ratioX96 == 0 clamp. Fed back through `_moveFromE6` its
+    /// numerator is below 2**117, so rate * numerator (rate < 2**24) cannot overflow `mulUp`.
     uint256 internal constant MAX_PI_E6 = (FixedPoint96.Q96 - 1) * ONE_E6;
 
     /// floor(sqrt(2) * 2**96)
@@ -33,31 +34,41 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
     uint24 internal constant MAX_SKEW_E6 = 2000;
 
     // -------------------------------------------------------------------------
-    // relativeMoveE6
+    // relativeMove
     // -------------------------------------------------------------------------
 
-    /// The ratioX96 == 0 clamp lands exactly on ONE_E6.
-    function test_relativeMoveE6_downMove_isBoundedByOneE6() public pure {
-        (uint256 moveFullE6, bool increasedFull) =
-            VolatileFeeCalculation.relativeMoveE6(MIN_SQRT_PRICE, MAX_SQRT_PRICE - 1);
-        assertEq(moveFullE6, ONE_E6);
-        assertFalse(increasedFull);
+    /// The ratioX96 == 0 clamp sits one part in Q96 under 100%; a down move never reaches ONE_E6.
+    function test_relativeMove_downMove_isBoundedByOneE6() public pure {
+        RelativeMove full = VolatileFeeCalculation.relativeMove(MIN_SQRT_PRICE, MAX_SQRT_PRICE - 1);
+        assertTrue(full.gte(ONE_E6 - 1), "full move below the last pip");
+        assertFalse(full.gte(ONE_E6), "full move reached 100%");
+        assertFalse(full.increased());
 
         // A 2x down move in PRICE space. floor(sqrt(2) * 2**96) is below the exact reference, so the true move is
-        // just under 500_000; the Q48 floor of 2**144 / ref pushes ratioX96 below 2**95 and divUp gives 500_001.
-        // Both roundings enlarge the move: rounding favours LPs.
-        (uint256 moveHalvedE6, bool increasedHalved) =
-            VolatileFeeCalculation.relativeMoveE6(SQRT_PRICE_1_1, SQRT_PRICE_2_1);
-        assertEq(moveHalvedE6, ONE_E6 / 2 + 1);
-        assertFalse(increasedHalved);
+        // just under 500_000; the Q48 floor of 2**144 / ref pushes ratioX96 below 2**95 and the ratio just over
+        // 500_000. The one rounding in the ratio enlarges the move: rounding favours LPs.
+        RelativeMove halved = VolatileFeeCalculation.relativeMove(SQRT_PRICE_1_1, SQRT_PRICE_2_1);
+        assertTrue(halved.gte(ONE_E6 / 2), "halved below 50%");
+        assertFalse(halved.gte(ONE_E6 / 2 + 1), "halved a pip or more over 50%");
+        assertFalse(halved.increased());
 
-        (uint256 moveEqualE6, bool increasedEqual) =
-            VolatileFeeCalculation.relativeMoveE6(SQRT_PRICE_1_1, SQRT_PRICE_1_1);
-        assertEq(moveEqualE6, 0);
-        assertFalse(increasedEqual);
+        RelativeMove equal = VolatileFeeCalculation.relativeMove(SQRT_PRICE_1_1, SQRT_PRICE_1_1);
+        assertEq(equal.numerator(), 0);
+        assertFalse(equal.gte(1), "equal prices moved");
+        assertFalse(equal.increased());
     }
 
-    function testFuzz_relativeMoveE6_upMove_monotoneNonDecreasing(uint160 refSeed, uint160 aSeed, uint160 bSeed)
+    /// The move is carried as a ratio; scaling it once rounds up once. A 6.5 pip move at skewRate 0.15 is an
+    /// exact step of 0.975, so the step is 1, not the 2 that ceil(0.15 * ceil(6.5)) gives.
+    function test_relativeMove_mulUp_roundsOnce() public pure {
+        uint160 sqrtNew = uint160(uint256(SQRT_PRICE_1_1) + uint256(SQRT_PRICE_1_1) * 32_499_947 / 1e13);
+        RelativeMove move = VolatileFeeCalculation.relativeMove(sqrtNew, SQRT_PRICE_1_1);
+        assertTrue(move.gte(6), "move below 6 pips");
+        assertFalse(move.gte(7), "move reached 7 pips");
+        assertEq(move.mulUp(150_000), 1);
+    }
+
+    function testFuzz_relativeMove_upMove_monotoneNonDecreasing(uint160 refSeed, uint160 aSeed, uint160 bSeed)
         public
         pure
     {
@@ -65,15 +76,15 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint160 a = uint160(bound(uint256(aSeed), ref, MAX_SQRT_PRICE - 1));
         uint160 b = uint160(bound(uint256(bSeed), a, MAX_SQRT_PRICE - 1));
 
-        (uint256 moveAE6, bool increasedA) = VolatileFeeCalculation.relativeMoveE6(a, ref);
-        (uint256 moveBE6, bool increasedB) = VolatileFeeCalculation.relativeMoveE6(b, ref);
+        RelativeMove moveA = VolatileFeeCalculation.relativeMove(a, ref);
+        RelativeMove moveB = VolatileFeeCalculation.relativeMove(b, ref);
 
-        assertLe(moveAE6, moveBE6, "PI must not decrease as the up-move grows");
-        assertEq(increasedA, a > ref, "direction flag for a");
-        assertEq(increasedB, b > ref, "direction flag for b");
+        assertTrue(_lte(moveA, moveB), "PI must not decrease as the up-move grows");
+        assertEq(moveA.increased(), a > ref, "direction flag for a");
+        assertEq(moveB.increased(), b > ref, "direction flag for b");
     }
 
-    function testFuzz_relativeMoveE6_downMove_boundedAndMonotone(uint160 refSeed, uint160 aSeed, uint160 bSeed)
+    function testFuzz_relativeMove_downMove_boundedAndMonotone(uint160 refSeed, uint160 aSeed, uint160 bSeed)
         public
         pure
     {
@@ -81,14 +92,14 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint160 b = uint160(bound(uint256(bSeed), MIN_SQRT_PRICE, ref));
         uint160 a = uint160(bound(uint256(aSeed), MIN_SQRT_PRICE, b));
 
-        (uint256 moveAE6, bool increasedA) = VolatileFeeCalculation.relativeMoveE6(a, ref);
-        (uint256 moveBE6, bool increasedB) = VolatileFeeCalculation.relativeMoveE6(b, ref);
+        RelativeMove moveA = VolatileFeeCalculation.relativeMove(a, ref);
+        RelativeMove moveB = VolatileFeeCalculation.relativeMove(b, ref);
 
-        assertLe(moveAE6, ONE_E6, "down-move PI bounded by 100%");
-        assertLe(moveBE6, ONE_E6, "down-move PI bounded by 100%");
-        assertGe(moveAE6, moveBE6, "a further below ref must not report a smaller PI than b");
-        assertFalse(increasedA, "direction flag for a");
-        assertFalse(increasedB, "direction flag for b");
+        assertFalse(moveA.gte(ONE_E6), "down-move PI reached 100%");
+        assertFalse(moveB.gte(ONE_E6), "down-move PI reached 100%");
+        assertTrue(_lte(moveB, moveA), "a further below ref must not report a smaller PI than b");
+        assertFalse(moveA.increased(), "direction flag for a");
+        assertFalse(moveB.increased(), "direction flag for b");
     }
 
     // -------------------------------------------------------------------------
@@ -96,17 +107,25 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
     // -------------------------------------------------------------------------
 
     function test_displacementBackrunFee_pointValues() public pure {
-        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, 0, BCF_E6), 1500);
-        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, 10_000, BCF_E6), 6500);
-        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, 1, BCF_E6), 1501);
-        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, 2_000_000, 0), 1500);
+        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, _moveFromE6(0, false), BCF_E6), 1500);
+        assertEq(
+            VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, _moveFromE6(10_000, false), BCF_E6), 6500
+        );
+        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, _moveFromE6(1, false), BCF_E6), 1501);
+        assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, _moveFromE6(2_000_000, false), 0), 1500);
     }
 
     function test_displacementBackrunFee_clampsToMaxHookFee() public pure {
         assertEq(
-            VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, 2_000_000, uint24(ONE_E6)), MAX_HOOK_FEE_E6
+            VolatileFeeCalculation.displacementBackrunFee(
+                NEUTRAL_PERM_E6, _moveFromE6(2_000_000, false), uint24(ONE_E6)
+            ),
+            MAX_HOOK_FEE_E6
         );
-        assertEq(VolatileFeeCalculation.displacementBackrunFee(0, MAX_PI_E6, uint24(ONE_E6)), MAX_HOOK_FEE_E6);
+        assertEq(
+            VolatileFeeCalculation.displacementBackrunFee(0, _moveFromE6(MAX_PI_E6, false), uint24(ONE_E6)),
+            MAX_HOOK_FEE_E6
+        );
     }
 
     function testFuzz_displacementBackrunFee_boundedAndMonotone(
@@ -120,8 +139,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint256 dispBE6 = bound(dispSeedB, dispAE6, MAX_PI_E6);
         uint24 bcfE6 = uint24(bound(uint256(bcfSeed), 0, ONE_E6));
 
-        uint24 feeAE6 = VolatileFeeCalculation.displacementBackrunFee(baselineFeeE6, dispAE6, bcfE6);
-        uint24 feeBE6 = VolatileFeeCalculation.displacementBackrunFee(baselineFeeE6, dispBE6, bcfE6);
+        uint24 feeAE6 = VolatileFeeCalculation.displacementBackrunFee(baselineFeeE6, _moveFromE6(dispAE6, false), bcfE6);
+        uint24 feeBE6 = VolatileFeeCalculation.displacementBackrunFee(baselineFeeE6, _moveFromE6(dispBE6, false), bcfE6);
 
         assertGe(feeAE6, baselineFeeE6, "fee below baseline");
         assertLe(feeBE6, MAX_HOOK_FEE_E6, "fee above ceiling");
@@ -134,32 +153,43 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
 
     function test_displacementContinuingFee_pointValues() public pure {
         assertEq(
-            VolatileFeeCalculation.displacementContinuingFee(NEUTRAL_PERM_E6, 0, MID_FADE_RATE_E6, MAX_MID_FADE_E6),
+            VolatileFeeCalculation.displacementContinuingFee(
+                NEUTRAL_PERM_E6, _moveFromE6(0, false), MID_FADE_RATE_E6, MAX_MID_FADE_E6
+            ),
             1500
         );
         assertEq(
             VolatileFeeCalculation.displacementContinuingFee(
-                NEUTRAL_PERM_E6, 10_000, MID_FADE_RATE_E6, MAX_MID_FADE_E6
+                NEUTRAL_PERM_E6, _moveFromE6(10_000, false), MID_FADE_RATE_E6, MAX_MID_FADE_E6
             ),
             3500
         );
         assertEq(
-            VolatileFeeCalculation.displacementContinuingFee(NEUTRAL_PERM_E6, 1, MID_FADE_RATE_E6, MAX_MID_FADE_E6),
+            VolatileFeeCalculation.displacementContinuingFee(
+                NEUTRAL_PERM_E6, _moveFromE6(1, false), MID_FADE_RATE_E6, MAX_MID_FADE_E6
+            ),
             1501
         );
         assertEq(
             VolatileFeeCalculation.displacementContinuingFee(
-                NEUTRAL_PERM_E6, 100_000, MID_FADE_RATE_E6, MAX_MID_FADE_E6
+                NEUTRAL_PERM_E6, _moveFromE6(100_000, false), MID_FADE_RATE_E6, MAX_MID_FADE_E6
             ),
             6500
         );
-        assertEq(VolatileFeeCalculation.displacementContinuingFee(NEUTRAL_PERM_E6, 10_000, 0, MAX_MID_FADE_E6), 1500);
+        assertEq(
+            VolatileFeeCalculation.displacementContinuingFee(
+                NEUTRAL_PERM_E6, _moveFromE6(10_000, false), 0, MAX_MID_FADE_E6
+            ),
+            1500
+        );
     }
 
     /// The library clamps baseline + fade (here 2 * MAX_HOOK_FEE_E6) to the ceiling; the hook adds no clamp of its own.
     function test_displacementContinuingFee_clampsToMaxHookFee() public pure {
         assertEq(
-            VolatileFeeCalculation.displacementContinuingFee(MAX_HOOK_FEE_E6, MAX_PI_E6, 1, MAX_HOOK_FEE_E6),
+            VolatileFeeCalculation.displacementContinuingFee(
+                MAX_HOOK_FEE_E6, _moveFromE6(MAX_PI_E6, false), 1, MAX_HOOK_FEE_E6
+            ),
             MAX_HOOK_FEE_E6
         );
     }
@@ -176,8 +206,12 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint256 dispBE6 = bound(dispSeedB, dispAE6, MAX_PI_E6);
         uint24 maxFadeE6 = uint24(bound(uint256(maxFadeSeed), 0, MAX_HOOK_FEE_E6));
 
-        uint24 feeAE6 = VolatileFeeCalculation.displacementContinuingFee(baselineFeeE6, dispAE6, rateE6, maxFadeE6);
-        uint24 feeBE6 = VolatileFeeCalculation.displacementContinuingFee(baselineFeeE6, dispBE6, rateE6, maxFadeE6);
+        uint24 feeAE6 = VolatileFeeCalculation.displacementContinuingFee(
+            baselineFeeE6, _moveFromE6(dispAE6, false), rateE6, maxFadeE6
+        );
+        uint24 feeBE6 = VolatileFeeCalculation.displacementContinuingFee(
+            baselineFeeE6, _moveFromE6(dispBE6, false), rateE6, maxFadeE6
+        );
 
         assertGe(feeAE6, baselineFeeE6, "fee below baseline");
         assertLe(feeBE6, uint256(baselineFeeE6) + maxFadeE6, "fade above cap");
@@ -189,21 +223,21 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
     // -------------------------------------------------------------------------
 
     function test_temporaryBackrunFee_pointValues() public pure {
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1700, 1500, 1999, BCF_E6, BACKRUN_THRESHOLD_E6), 200);
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1700, 1500, 2000, BCF_E6, BACKRUN_THRESHOLD_E6), 1200);
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1700, 1500, 10_000, BCF_E6, BACKRUN_THRESHOLD_E6), 5200);
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1500, 1500, 10_000, BCF_E6, BACKRUN_THRESHOLD_E6), 5000);
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1700, 1500, 10_000, 0, BACKRUN_THRESHOLD_E6), 200);
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1500, 1500, 1, BCF_E6, 0), 1);
+        assertEq(_tempFee(1700, 1500, 1999, BCF_E6, BACKRUN_THRESHOLD_E6), 200);
+        assertEq(_tempFee(1700, 1500, 2000, BCF_E6, BACKRUN_THRESHOLD_E6), 1200);
+        assertEq(_tempFee(1700, 1500, 10_000, BCF_E6, BACKRUN_THRESHOLD_E6), 5200);
+        assertEq(_tempFee(1500, 1500, 10_000, BCF_E6, BACKRUN_THRESHOLD_E6), 5000);
+        assertEq(_tempFee(1700, 1500, 10_000, 0, BACKRUN_THRESHOLD_E6), 200);
+        assertEq(_tempFee(1500, 1500, 1, BCF_E6, 0), 1);
     }
 
     function test_temporaryBackrunFee_zeroThresholdOnFlatBlock_isZero() public pure {
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(1500, 1500, 0, BCF_E6, 0), 0);
+        assertEq(_tempFee(1500, 1500, 0, BCF_E6, 0), 0);
     }
 
     /// Step + captured term (500 + ~2**96 * 1e6) clamps as a whole, so the temp fee alone never exceeds the ceiling.
     function test_temporaryBackrunFee_clampsToMaxHookFee() public pure {
-        assertEq(VolatileFeeCalculation.temporaryBackrunFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_HOOK_FEE_E6);
+        assertEq(_tempFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_HOOK_FEE_E6);
     }
 
     function testFuzz_temporaryBackrunFee_gatedBoundedAndMonotone(
@@ -220,12 +254,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint256 piBE6 = bound(piSeedB, piAE6, MAX_PI_E6);
         uint24 bcfE6 = uint24(bound(uint256(bcfSeed), 0, ONE_E6));
 
-        uint24 feeAE6 = VolatileFeeCalculation.temporaryBackrunFee(
-            oldPermFeeE6 + stepE6, oldPermFeeE6, piAE6, bcfE6, backrunThresholdE6
-        );
-        uint24 feeBE6 = VolatileFeeCalculation.temporaryBackrunFee(
-            oldPermFeeE6 + stepE6, oldPermFeeE6, piBE6, bcfE6, backrunThresholdE6
-        );
+        uint24 feeAE6 = _tempFee(oldPermFeeE6 + stepE6, oldPermFeeE6, piAE6, bcfE6, backrunThresholdE6);
+        uint24 feeBE6 = _tempFee(oldPermFeeE6 + stepE6, oldPermFeeE6, piBE6, bcfE6, backrunThresholdE6);
 
         if (piAE6 < backrunThresholdE6) assertEq(feeAE6, stepE6, "charged below threshold");
         assertGe(feeAE6, stepE6, "fee below step");
@@ -289,7 +319,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
 
         VolatileFeeState memory state;
         (state.askPermFeeE6, state.tempFeeE6, state.tempOnBid) =
-            VolatileFeeCalculation.newPermAndTempFee(s, oldAskPermFeeE6, piE6, up);
+            VolatileFeeCalculation.newPermAndTempFee(s, oldAskPermFeeE6, _moveFromE6(piE6, up));
         assertEq(state.tempOnBid, up, "temp fee must sit on the backrun side");
         uint24 newAskPermFeeE6 = state.askPermFeeE6;
         (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _baselines(state, s.restingSpreadE6);
@@ -331,6 +361,17 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(uint256(downAskPermE6) + upAskPermE6, s.restingSpreadE6, "perm fees are not mirrored");
         assertEq(downAskBaselineE6, upBidBaselineE6, "backrun baselines differ");
         assertEq(downBidBaselineE6, upAskBaselineE6, "leaning baselines differ");
+    }
+
+    /// `temporaryBackrunFee` on a pip-denominated move; the direction does not enter the temp fee.
+    function _tempFee(uint24 newPermFeeE6, uint24 oldPermFeeE6, uint256 piE6, uint24 bcfE6, uint24 thresholdE6)
+        internal
+        pure
+        returns (uint24)
+    {
+        return VolatileFeeCalculation.temporaryBackrunFee(
+            newPermFeeE6, oldPermFeeE6, _moveFromE6(piE6, false), bcfE6, thresholdE6
+        );
     }
 
     /// Top-of-block fields only; the mid-block fade fields stay zero.

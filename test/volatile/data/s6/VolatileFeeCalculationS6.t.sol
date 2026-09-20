@@ -35,7 +35,7 @@ contract VolatileFeeCalculationS6Test is VolatileVectorTestBase {
             (uint24 baselineFeeE6, uint256 expectedFeeE6) =
                 rows[i].dvE6 > 0 ? (rows[i].baseBidE6, rows[i].fBidE6) : (rows[i].baseAskE6, rows[i].fAskE6);
             uint256 feeE6 = VolatileFeeCalculation.displacementBackrunFee(
-                baselineFeeE6, _abs(rows[i].dvE6), BACKRUN_CAPTURE_FRACTION_E6
+                baselineFeeE6, _moveFromE6(_abs(rows[i].dvE6), rows[i].dvE6 > 0), BACKRUN_CAPTURE_FRACTION_E6
             );
             assertGeWithinPip(feeE6, expectedFeeE6, _label(rows[i].name, "f backrun"));
         }
@@ -48,7 +48,7 @@ contract VolatileFeeCalculationS6Test is VolatileVectorTestBase {
             (uint24 baselineFeeE6, uint256 expectedFeeE6) =
                 rows[i].dvE6 > 0 ? (rows[i].baseAskE6, rows[i].fAskE6) : (rows[i].baseBidE6, rows[i].fBidE6);
             uint256 feeE6 = VolatileFeeCalculation.displacementContinuingFee(
-                baselineFeeE6, _abs(rows[i].dvE6), MID_FADE_RATE_E6, MAX_MID_FADE_E6
+                baselineFeeE6, _moveFromE6(_abs(rows[i].dvE6), rows[i].dvE6 > 0), MID_FADE_RATE_E6, MAX_MID_FADE_E6
             );
             assertGeWithinPip(feeE6, expectedFeeE6, _label(rows[i].name, "f continuing"));
         }

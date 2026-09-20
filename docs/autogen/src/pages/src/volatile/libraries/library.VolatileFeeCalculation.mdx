@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d1fdaedc28e6c6dcbb5549aac699d42fd2860e52/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -13,8 +13,9 @@ Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 
 
 <i>
 
-Rounding favours LPs: every division that feeds a charged fee rounds up, and the sqrt-ratio
-intermediates in relativeMoveE6 round down because a smaller ratio means a larger move.
+A price move is carried as an exact ratio (RelativeMove) and rounded once, up, where it is scaled
+into a fee or a skew step. The Q48 sqrt-ratio intermediate in relativeMove rounds down, which can only
+enlarge the move, by at most 2**-47 relative. Both round in favour of LPs.
 
 </i>
 
@@ -48,17 +49,14 @@ uint256 internal constant Q48 = 2 ** 48;
 
 ## Functions
 
-<a id="relativemovee6-uint160-uint160"></a>
+<a id="relativemove-uint160-uint160"></a>
 
-### relativeMoveE6
+### relativeMove
 
-Relative move between two sqrt prices, as an E6 fraction of the reference price.
+Relative move between two sqrt prices, as an exact ratio of the reference price.
 
 ```solidity
-function relativeMoveE6(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
-        internal
-        pure
-        returns (uint256 moveE6, bool increased);
+function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal pure returns (RelativeMove move);
 ```
 
 **Parameters**
@@ -72,10 +70,9 @@ function relativeMoveE6(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| moveE6 | `uint256` | Relative move magnitude |
-| increased | `bool` | True if sqrtPriceNewX96 > sqrtPriceRefX96 |
+| move | `RelativeMove` | The ratio \|P_new - P_ref\| / P_ref and whether the price increased |
 
-<a id="newpermanentfee-uint24-uint256-uint24-uint24-uint24"></a>
+<a id="newpermanentfee-uint24-relativemove-uint24-uint24-uint24"></a>
 
 ### newPermanentFee
 
@@ -84,7 +81,7 @@ Applies the per-block permanent skew step to the leaning side's fee.
 ```solidity
 function newPermanentFee(
         uint24 oldPermFeeE6,
-        uint256 blockPriceImpactE6,
+        RelativeMove blockPriceImpact,
         uint24 skewRateE6,
         uint24 maxSkewStepE6,
         uint24 maxSkewE6
@@ -96,7 +93,7 @@ function newPermanentFee(
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | oldPermFeeE6 | `uint24` | Previous block's permanent fee for the leaning side |
-| blockPriceImpactE6 | `uint256` | Price impact magnitude (>= 0) |
+| blockPriceImpact | `RelativeMove` | Price impact since the previous block open |
 | skewRateE6 | `uint24` | Lean per unit of price impact |
 | maxSkewStepE6 | `uint24` | Per-block skew step cap |
 | maxSkewE6 | `uint24` | Skew ceiling |
@@ -107,7 +104,7 @@ function newPermanentFee(
 | ---- | ---- | ----------- |
 | newPermFeeE6 | `uint24` | New permanent fee for the leaning side |
 
-<a id="displacementbackrunfee-uint24-uint256-uint24"></a>
+<a id="displacementbackrunfee-uint24-relativemove-uint24"></a>
 
 ### displacementBackrunFee
 
@@ -116,7 +113,7 @@ Fee for a swap trading back toward the block open (the backrun side).
 ```solidity
 function displacementBackrunFee(
         uint24 baselineFeeE6,
-        uint256 displacementFromTopE6,
+        RelativeMove displacementFromTop,
         uint24 backrunCaptureFractionE6
     ) internal pure returns (uint24 feeE6);
 ```
@@ -126,7 +123,7 @@ function displacementBackrunFee(
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | baselineFeeE6 | `uint24` | Block's baseline fee for this side |
-| displacementFromTopE6 | `uint256` | Displacement from the block open (>= 0) |
+| displacementFromTop | `RelativeMove` | Displacement from the block open |
 | backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
 
 **Returns**
@@ -135,7 +132,7 @@ function displacementBackrunFee(
 | ---- | ---- | ----------- |
 | feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
 
-<a id="displacementcontinuingfee-uint24-uint256-uint24-uint24"></a>
+<a id="displacementcontinuingfee-uint24-relativemove-uint24-uint24"></a>
 
 ### displacementContinuingFee
 
@@ -144,7 +141,7 @@ Fee for a swap pushing further in the price-impact direction (the continuing sid
 ```solidity
 function displacementContinuingFee(
         uint24 baselineFeeE6,
-        uint256 displacementFromTopE6,
+        RelativeMove displacementFromTop,
         uint24 midFadeRateE6,
         uint24 maxMidFadeE6
     ) internal pure returns (uint24 feeE6);
@@ -155,7 +152,7 @@ function displacementContinuingFee(
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | baselineFeeE6 | `uint24` | Block's baseline fee for this side |
-| displacementFromTopE6 | `uint256` | Displacement from the block open (>= 0) |
+| displacementFromTop | `RelativeMove` | Displacement from the block open |
 | midFadeRateE6 | `uint24` | Continuing-fee growth rate per unit move |
 | maxMidFadeE6 | `uint24` | Continuing-side fee cap |
 
@@ -165,7 +162,7 @@ function displacementContinuingFee(
 | ---- | ---- | ----------- |
 | feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
 
-<a id="temporarybackrunfee-uint24-uint24-uint256-uint24-uint24"></a>
+<a id="temporarybackrunfee-uint24-uint24-relativemove-uint24-uint24"></a>
 
 ### temporaryBackrunFee
 
@@ -175,7 +172,7 @@ Temporary (one-block) fee on the backrun side at the top of a block.
 function temporaryBackrunFee(
         uint24 newPermFeeE6,
         uint24 oldPermFeeE6,
-        uint256 blockPriceImpactE6,
+        RelativeMove blockPriceImpact,
         uint24 backrunCaptureFractionE6,
         uint24 backrunThresholdE6
     ) internal pure returns (uint24 tempFeeE6);
@@ -187,7 +184,7 @@ function temporaryBackrunFee(
 | ---- | ---- | ----------- |
 | newPermFeeE6 | `uint24` | Updated permanent skew (this block) |
 | oldPermFeeE6 | `uint24` | Previous permanent skew (last block) |
-| blockPriceImpactE6 | `uint256` | Price impact signal (>= 0) |
+| blockPriceImpact | `RelativeMove` | Price impact since the previous block open |
 | backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
 | backrunThresholdE6 | `uint24` | Price impact level that arms the backrun charge |
 
@@ -197,7 +194,7 @@ function temporaryBackrunFee(
 | ---- | ---- | ----------- |
 | tempFeeE6 | `uint24` | Temporary fee on the backrun side |
 
-<a id="newpermandtempfee-volatilefeeconfig-uint24-uint256-bool"></a>
+<a id="newpermandtempfee-volatilefeeconfig-uint24-relativemove"></a>
 
 ### newPermAndTempFee
 
@@ -211,12 +208,10 @@ backrun side, which carries the temp fee. Baselines follow from `baselineFee`.
 </i>
 
 ```solidity
-function newPermAndTempFee(
-        VolatileFeeConfig memory config,
-        uint24 oldAskPermFeeE6,
-        uint256 blockPriceImpactE6,
-        bool blockPriceImpactUp
-    ) internal pure returns (uint24 newAskPermFeeE6, uint24 tempFeeE6, bool tempOnBid);
+function newPermAndTempFee(VolatileFeeConfig memory config, uint24 oldAskPermFeeE6, RelativeMove blockPriceImpact)
+        internal
+        pure
+        returns (uint24 newAskPermFeeE6, uint24 tempFeeE6, bool tempOnBid);
 ```
 
 **Parameters**
@@ -225,8 +220,7 @@ function newPermAndTempFee(
 | ---- | ---- | ----------- |
 | config | `VolatileFeeConfig` | Pool's fee config |
 | oldAskPermFeeE6 | `uint24` | Previous block's permanent ask-side fee |
-| blockPriceImpactE6 | `uint256` | Price impact magnitude |
-| blockPriceImpactUp | `bool` | True if price moved up since the previous block |
+| blockPriceImpact | `RelativeMove` | Price impact since the previous block open, with its direction |
 
 **Returns**
 

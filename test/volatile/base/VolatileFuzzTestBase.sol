@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {VolatileFeeCalculation} from "../../../src/volatile/libraries/VolatileFeeCalculation.sol";
+import {RelativeMove, RelativeMoveLibrary} from "../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 
 /// All `*E6` values are pips; 1e6 = 100%.
@@ -12,7 +13,8 @@ abstract contract VolatileFuzzTestBase is Test {
 
     uint24 internal constant MAX_RESTING_SPREAD_E6 = 2 * MAX_HOOK_FEE_E6; // 1_999_996
 
-    /// `relativeMoveE6` against 2**96 is 16_778_216 = 2**24 + 1000: truncated to uint24 the move would read 1000.
+    /// `relativeMove` against 2**96, scaled to E6, is 16_778_216 = 2**24 + 1000: truncated to uint24 the move would
+    /// read 1000.
     uint160 internal constant SQRT_PRICE_UP_16_778_216_E6 = 334059372310633655172500143626;
 
     struct ConfigSeed {
@@ -47,6 +49,17 @@ abstract contract VolatileFuzzTestBase is Test {
         });
     }
 
+    /// The exact ratio `piE6 / 1e6` with a direction, for feeding pip-denominated vectors to the library.
+    function _moveFromE6(uint256 piE6, bool up) internal pure returns (RelativeMove) {
+        return RelativeMoveLibrary.pack(piE6, VolatileFeeCalculation.ONE_E6, up);
+    }
+
+    /// `a <= b` as exact ratios, cross-multiplied. Numerators are below 2**128 and denominators below 2**127, so
+    /// the products fit.
+    function _lte(RelativeMove a, RelativeMove b) internal pure returns (bool) {
+        return a.numerator() * b.denominator() <= b.numerator() * a.denominator();
+    }
+
     /// `newPermAndTempFee` composed with `baselineFee` per side: the block's new ask perm fee and both baselines.
     function _newPermAndBaselines(
         VolatileFeeConfig memory config,
@@ -54,9 +67,17 @@ abstract contract VolatileFuzzTestBase is Test {
         uint256 blockPriceImpactE6,
         bool blockPriceImpactUp
     ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
+        return _newPermAndBaselines(config, oldAskPermFeeE6, _moveFromE6(blockPriceImpactE6, blockPriceImpactUp));
+    }
+
+    function _newPermAndBaselines(
+        VolatileFeeConfig memory config,
+        uint24 oldAskPermFeeE6,
+        RelativeMove blockPriceImpact
+    ) internal pure returns (uint24 newAskPermFeeE6, uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
         VolatileFeeState memory state;
         (state.askPermFeeE6, state.tempFeeE6, state.tempOnBid) =
-            VolatileFeeCalculation.newPermAndTempFee(config, oldAskPermFeeE6, blockPriceImpactE6, blockPriceImpactUp);
+            VolatileFeeCalculation.newPermAndTempFee(config, oldAskPermFeeE6, blockPriceImpact);
         newAskPermFeeE6 = state.askPermFeeE6;
         (askBaselineFeeE6, bidBaselineFeeE6) = _baselines(state, config.restingSpreadE6);
     }
