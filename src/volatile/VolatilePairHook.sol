@@ -116,7 +116,7 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         if (currentBlock <= poolState.blockNumber) return (poolState, config, currentSqrtPriceX96, false);
         isNewBlock = true;
 
-        // Otherwise, cache the cached pool state
+        // Otherwise, update the cached pool state
         // Update fee states only when there's a previous price to compare against
         if (poolState.sqrtPriceTopX96 != 0) {
             RelativeMove blockPriceImpact =
@@ -153,7 +153,7 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
                 baselineFeeE6, displacementFromTop, _config.backrunCaptureFractionE6
             );
         } else {
-            // Trading in the same direction the displacement is a continuation, we apply a trend fee
+            // Trading in the same direction as the displacement is a continuation
             return VolatileFeeCalculation.displacementContinuingFee(
                 baselineFeeE6, displacementFromTop, _config.midFadeRateE6, _config.maxMidFadeE6
             );

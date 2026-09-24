@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity ^0.8.26;
 
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
 import {RelativeMove, RelativeMoveLibrary} from "./RelativeMoveLibrary.sol";
@@ -12,7 +12,7 @@ import {VolatileFeeConfig, VolatileFeeState} from "../interfaces/IVolatileFeeCon
 ///      enlarge the move, by at most 2**-47 relative. Both round in favour of LPs.
 library VolatileFeeCalculation {
     /// @notice 1e6 is 100% in pips format
-    uint256 constant ONE_E6 = 1e6;
+    uint256 internal constant ONE_E6 = 1e6;
 
     /// @notice Maximum LP fee the hook can charge. Pool.swap combines the LP fee with the protocol fee.
     ///         Hook fee of 999_999 compounds to 1e6 for any nonzero protocol fee, whereas 999_998 hits
@@ -127,9 +127,9 @@ library VolatileFeeCalculation {
             tempFeeE6 = newPermFeeE6 - oldPermFeeE6;
         }
         if (blockPriceImpact.gte(backrunThresholdE6)) {
-            uint256 backRunFee = blockPriceImpact.mulUp(backrunCaptureFractionE6);
+            uint256 backrunFee = blockPriceImpact.mulUp(backrunCaptureFractionE6);
 
-            tempFeeE6 = clampToMaxHookFeeE6(uint256(tempFeeE6) + backRunFee);
+            tempFeeE6 = clampToMaxHookFeeE6(uint256(tempFeeE6) + backrunFee);
         }
     }
 

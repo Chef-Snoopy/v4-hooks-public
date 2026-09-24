@@ -135,7 +135,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     }
 
     /// Pins `_boundFeeConfig`, which every volatile suite draws valid configs from, to the validator.
-    function testFuzz_updateFeeConfig_storesGeneratedConfig(ConfigSeed memory seed) public {
+    function test_fuzz_updateFeeConfig_storesGeneratedConfig(ConfigSeed memory seed) public {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
 
         vm.prank(configManager);
@@ -144,7 +144,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, params);
     }
 
-    function testFuzz_updateFeeConfig_rejectsZeroRestingSpread(ConfigSeed memory seed) public {
+    function test_fuzz_updateFeeConfig_rejectsZeroRestingSpread(ConfigSeed memory seed) public {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
         params.restingSpreadE6 = 0;
 
@@ -155,7 +155,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsMaxSkewAboveRestingSpread(ConfigSeed memory seed, uint24 maxSkewSeed)
+    function test_fuzz_updateFeeConfig_rejectsMaxSkewAboveRestingSpread(ConfigSeed memory seed, uint24 maxSkewSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
@@ -172,7 +172,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsMaxSkewBelowNeutralCenter(ConfigSeed memory seed, uint24 maxSkewSeed)
+    function test_fuzz_updateFeeConfig_rejectsMaxSkewBelowNeutralCenter(ConfigSeed memory seed, uint24 maxSkewSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
@@ -190,7 +190,9 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsBackrunCaptureAboveOne(ConfigSeed memory seed, uint24 captureSeed) public {
+    function test_fuzz_updateFeeConfig_rejectsBackrunCaptureAboveOne(ConfigSeed memory seed, uint24 captureSeed)
+        public
+    {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
         params.backrunCaptureFractionE6 = uint24(bound(captureSeed, uint256(ONE_E6) + 1, type(uint24).max));
 
@@ -206,7 +208,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     }
 
     /// restingSpreadE6 == 0 is the PoolNotInitialized sentinel; sound only because every write rejects a zero pie.
-    function testFuzz_sentinel_hasNoFalseNegative(ConfigSeed memory seed) public {
+    function test_fuzz_sentinel_hasNoFalseNegative(ConfigSeed memory seed) public {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
         PoolId fresh = PoolId.wrap(keccak256(abi.encode("fresh pool", params.restingSpreadE6, params.maxSkewE6)));
 
@@ -333,7 +335,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
-    function testFuzz_updateFeeConfig_rejectsRestingSpreadAboveTwiceMaxHookFee(ConfigSeed memory seed, uint24 rsSeed)
+    function test_fuzz_updateFeeConfig_rejectsRestingSpreadAboveTwiceMaxHookFee(ConfigSeed memory seed, uint24 rsSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
@@ -348,7 +350,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsMaxSkewAboveMaxHookFee(
+    function test_fuzz_updateFeeConfig_rejectsMaxSkewAboveMaxHookFee(
         ConfigSeed memory seed,
         uint24 rsSeed,
         uint24 maxSkewSeed
@@ -367,7 +369,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsMaxSkewStepAboveBand(ConfigSeed memory seed, uint24 stepSeed) public {
+    function test_fuzz_updateFeeConfig_rejectsMaxSkewStepAboveBand(ConfigSeed memory seed, uint24 stepSeed) public {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
         uint256 bandE6 = 2 * uint256(params.maxSkewE6) - params.restingSpreadE6;
         params.maxSkewStepE6 = uint24(bandE6 + bound(stepSeed, 1, type(uint24).max - bandE6));
@@ -386,7 +388,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function testFuzz_updateFeeConfig_rejectsMaxMidFadeAboveMaxHookFee(ConfigSeed memory seed, uint24 maxMidFadeSeed)
+    function test_fuzz_updateFeeConfig_rejectsMaxMidFadeAboveMaxHookFee(ConfigSeed memory seed, uint24 maxMidFadeSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
@@ -403,7 +405,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
     /// Draws each validated field from [0, one past its largest accepted value]: every rejection stays reachable and
     /// the store branch runs on roughly 6% of draws.
-    function testFuzz_updateFeeConfig_storesWithinBoundsOrRevertsWithValidatorError(VolatileFeeConfig memory raw)
+    function test_fuzz_updateFeeConfig_storesWithinBoundsOrRevertsWithValidatorError(VolatileFeeConfig memory raw)
         public
     {
         raw.restingSpreadE6 = uint24(bound(raw.restingSpreadE6, 0, uint256(MAX_RESTING_SPREAD_E6) + 1));

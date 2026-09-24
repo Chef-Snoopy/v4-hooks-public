@@ -247,7 +247,7 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
         _assertGetFeeMatchesSwap();
     }
 
-    function testFuzz_getFee_matchesBeforeSwap(
+    function test_fuzz_getFee_matchesBeforeSwap(
         ConfigSeed memory configSeed,
         uint160 priceSeed,
         uint160 primePriceSeed,

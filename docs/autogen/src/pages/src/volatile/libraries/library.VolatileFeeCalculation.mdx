@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d1fdaedc28e6c6dcbb5549aac699d42fd2860e52/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d1e7b7c8a242702f29d254ce90706aa5f0147cd9/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -26,7 +26,7 @@ enlarge the move, by at most 2**-47 relative. Both round in favour of LPs.
 1e6 is 100% in pips format
 
 ```solidity
-uint256 constant ONE_E6 = 1e6;
+uint256 internal constant ONE_E6 = 1e6;
 ```
 
 ### MAX_HOOK_FEE_E6

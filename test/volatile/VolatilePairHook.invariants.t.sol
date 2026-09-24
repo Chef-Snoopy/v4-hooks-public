@@ -25,7 +25,7 @@ contract VolatilePairHookInvariantsTest is VolatilePairTestBase {
 
     /// Up-moves are unbounded here; a charge above MAX_HOOK_FEE_E6 compounds with a protocol fee to a dead 100%
     /// (extremeMove.t.sol).
-    function testFuzz_anySequence_neverRevertsAndStaysWithinCeiling(
+    function test_fuzz_anySequence_neverRevertsAndStaysWithinCeiling(
         ConfigSeed memory configSeed,
         SwapStep[8] memory steps,
         ConfigSeed[8] memory resetSeeds,
@@ -56,7 +56,7 @@ contract VolatilePairHookInvariantsTest is VolatilePairTestBase {
     // Swap-parameter independence
     // -------------------------------------------------------------------------
 
-    function testFuzz_beforeSwap_feeAndStateDependOnlyOnDirection(
+    function test_fuzz_beforeSwap_feeAndStateDependOnlyOnDirection(
         ConfigSeed memory configSeed,
         SwapStep[3] memory history,
         SwapStep memory last,

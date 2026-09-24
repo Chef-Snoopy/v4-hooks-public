@@ -68,7 +68,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(move.mulUp(150_000), 1);
     }
 
-    function testFuzz_relativeMove_upMove_monotoneNonDecreasing(uint160 refSeed, uint160 aSeed, uint160 bSeed)
+    function test_fuzz_relativeMove_upMove_monotoneNonDecreasing(uint160 refSeed, uint160 aSeed, uint160 bSeed)
         public
         pure
     {
@@ -84,7 +84,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(moveB.increased(), b > ref, "direction flag for b");
     }
 
-    function testFuzz_relativeMove_downMove_boundedAndMonotone(uint160 refSeed, uint160 aSeed, uint160 bSeed)
+    function test_fuzz_relativeMove_downMove_boundedAndMonotone(uint160 refSeed, uint160 aSeed, uint160 bSeed)
         public
         pure
     {
@@ -128,7 +128,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         );
     }
 
-    function testFuzz_displacementBackrunFee_boundedAndMonotone(
+    function test_fuzz_displacementBackrunFee_boundedAndMonotone(
         uint24 baselineSeed,
         uint256 dispSeedA,
         uint256 dispSeedB,
@@ -194,7 +194,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         );
     }
 
-    function testFuzz_displacementContinuingFee_boundedAndMonotone(
+    function test_fuzz_displacementContinuingFee_boundedAndMonotone(
         uint24 baselineSeed,
         uint256 dispSeedA,
         uint256 dispSeedB,
@@ -240,7 +240,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(_tempFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_HOOK_FEE_E6);
     }
 
-    function testFuzz_temporaryBackrunFee_gatedBoundedAndMonotone(
+    function test_fuzz_temporaryBackrunFee_gatedBoundedAndMonotone(
         uint24 oldPermSeed,
         uint24 stepSeed,
         uint256 piSeedA,
@@ -306,7 +306,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         _assertTopOfBlock(s, 2000, 10_000, false, 1600, 7000, 1400);
     }
 
-    function testFuzz_newPermAndTempFee_keepsBandAndBounds(
+    function test_fuzz_newPermAndTempFee_keepsBandAndBounds(
         ConfigSeed memory seed,
         uint24 oldAskSeed,
         uint256 piSeed,
@@ -344,7 +344,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         }
     }
 
-    function testFuzz_newPermAndTempFee_upAndDownAreMirrorImages(
+    function test_fuzz_newPermAndTempFee_upAndDownAreMirrorImages(
         ConfigSeed memory seed,
         uint24 leanSeed,
         uint256 piSeed
