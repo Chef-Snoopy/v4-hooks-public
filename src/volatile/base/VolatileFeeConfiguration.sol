@@ -68,6 +68,8 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @return maxSkewStepE6 Max skew change per block
     /// @return maxSkewE6 Skew ceiling
     /// @return backrunThresholdE6 Min price impact that arms the backrun charge
+    /// @return restoreFractionE6 Fraction of the baseline in the next block's baseline calculation
+    /// @return restoreThresholdE6 Price impact level that triggers the restore mechanism
     function feeConfig(PoolId poolId)
         public
         view
@@ -79,7 +81,9 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
             uint24 skewRateE6,
             uint24 maxSkewStepE6,
             uint24 maxSkewE6,
-            uint24 backrunThresholdE6
+            uint24 backrunThresholdE6,
+            uint24 restoreFractionE6,
+            uint24 restoreThresholdE6
         )
     {
         VolatileFeeConfig storage config = _getVolatileFeeConfigurationStorage().feeConfig[poolId];
@@ -91,7 +95,9 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
             config.skewRateE6,
             config.maxSkewStepE6,
             config.maxSkewE6,
-            config.backrunThresholdE6
+            config.backrunThresholdE6,
+            config.restoreFractionE6,
+            config.restoreThresholdE6
         );
     }
 
@@ -121,6 +127,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         _validateMaxSkewE6(_feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
         _validateMaxSkewStepE6(_feeConfig.maxSkewStepE6, _feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
         _validateMaxMidFadeE6(_feeConfig.maxMidFadeE6);
+        _validateRestoreFractionE6(_feeConfig.restoreFractionE6);
 
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
         $.feeConfig[_poolId] = _feeConfig;
@@ -196,5 +203,12 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure {
         // The charged fee is clamped at MAX_HOOK_FEE_E6, so a larger fade cap is dead band.
         if (_maxMidFadeE6 > VolatileFeeCalculation.MAX_HOOK_FEE_E6) revert MaxMidFadeTooLarge(_maxMidFadeE6);
+    }
+
+    /// @notice Validates the restore fraction against 100% (1e6)
+    /// @param _restoreFractionE6 The restore fraction to validate
+    function _validateRestoreFractionE6(uint24 _restoreFractionE6) internal pure {
+        // The pool cannot capture more than 100% of the price move.
+        if (_restoreFractionE6 > VolatileFeeCalculation.ONE_E6) revert InvalidRestoreFraction(_restoreFractionE6);
     }
 }

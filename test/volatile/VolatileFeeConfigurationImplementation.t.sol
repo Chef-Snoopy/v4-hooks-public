@@ -84,7 +84,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         vm.prank(configManager);
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
-        (,,,,,, uint24 maxSkewE6,) = feeConfigurationImplementation.feeConfig(testPoolId);
+        (,,,,,, uint24 maxSkewE6,,,) = feeConfigurationImplementation.feeConfig(testPoolId);
         assertEq(maxSkewE6, RESTING_SPREAD_E6);
     }
 
@@ -130,8 +130,17 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         vm.prank(configManager);
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
-        (, uint24 backrunCaptureFractionE6,,,,,,) = feeConfigurationImplementation.feeConfig(testPoolId);
+        (, uint24 backrunCaptureFractionE6,,,,,,,,) = feeConfigurationImplementation.feeConfig(testPoolId);
         assertEq(backrunCaptureFractionE6, ONE_E6);
+    }
+
+    function test_updateFeeConfig_revertsWithRestoreFractionTooLarge() public {
+        VolatileFeeConfig memory params = _defaultConfig();
+        params.restoreFractionE6 = ONE_E6 + 1;
+
+        vm.prank(configManager);
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.InvalidRestoreFraction.selector, ONE_E6 + 1));
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
     /// Pins `_boundFeeConfig`, which every volatile suite draws valid configs from, to the validator.
@@ -218,7 +227,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
         feeConfigurationImplementation.initializeFeeConfig(fresh, params);
 
-        (uint24 storedRestingSpreadE6,,,,,,,) = feeConfigurationImplementation.feeConfig(fresh);
+        (uint24 storedRestingSpreadE6,,,,,,,,,) = feeConfigurationImplementation.feeConfig(fresh);
         assertTrue(storedRestingSpreadE6 != 0);
         vm.prank(configManager);
         feeConfigurationImplementation.updateFeeConfig(fresh, params);
@@ -403,6 +412,21 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
+    function test_fuzz_updateFeeConfig_rejectsRestoreFractionAboveOne(ConfigSeed memory seed, uint24 fractionSeed)
+        public
+    {
+        VolatileFeeConfig memory params = _boundFeeConfig(seed);
+        params.restoreFractionE6 = uint24(bound(fractionSeed, uint256(ONE_E6) + 1, type(uint24).max));
+
+        vm.prank(configManager);
+        vm.expectRevert(
+            abi.encodeWithSelector(IVolatileFeeConfiguration.InvalidRestoreFraction.selector, params.restoreFractionE6)
+        );
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+
+        _assertConfigEq(testPoolId, _seedParams());
+    }
+
     /// Draws each validated field from [0, one past its largest accepted value]: every rejection stays reachable and
     /// the store branch runs on roughly 6% of draws.
     function test_fuzz_updateFeeConfig_storesWithinBoundsOrRevertsWithValidatorError(VolatileFeeConfig memory raw)
@@ -414,6 +438,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         // the widest band is MAX_HOOK_FEE_E6, at rs = maxSkew = MAX_HOOK_FEE_E6
         raw.maxSkewStepE6 = uint24(bound(raw.maxSkewStepE6, 0, uint256(MAX_HOOK_FEE_E6) + 1));
         raw.maxMidFadeE6 = uint24(bound(raw.maxMidFadeE6, 0, uint256(MAX_HOOK_FEE_E6) + 1));
+        raw.restoreFractionE6 = uint24(bound(raw.restoreFractionE6, 0, uint256(ONE_E6) + 1));
 
         vm.prank(configManager);
         (bool success, bytes memory returndata) = address(feeConfigurationImplementation)
@@ -427,7 +452,8 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
                 uint24 storedCaptureE6,,
                 uint24 storedMaxMidFadeE6,,
                 uint24 storedMaxSkewStepE6,
-                uint24 storedMaxSkewE6,
+                uint24 storedMaxSkewE6,,
+                uint24 storedRestoreFractionE6,
             ) = feeConfigurationImplementation.feeConfig(testPoolId);
             assertTrue(storedRestingSpreadE6 != 0);
             assertLe(storedRestingSpreadE6, MAX_RESTING_SPREAD_E6);
@@ -437,6 +463,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
             assertLe(storedMaxSkewE6, MAX_HOOK_FEE_E6);
             assertLe(storedMaxSkewStepE6, 2 * uint256(storedMaxSkewE6) - storedRestingSpreadE6);
             assertLe(storedMaxMidFadeE6, MAX_HOOK_FEE_E6);
+            assertLe(storedRestoreFractionE6, ONE_E6);
         } else {
             bytes4 selector = bytes4(returndata);
             assertTrue(
@@ -447,7 +474,8 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
                     || selector == IVolatileFeeConfiguration.MaxSkewTooSmall.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewAboveMaxHookFee.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewStepTooLarge.selector
-                    || selector == IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector,
+                    || selector == IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector
+                    || selector == IVolatileFeeConfiguration.InvalidRestoreFraction.selector,
                 "unexpected revert selector"
             );
             _assertConfigEq(testPoolId, _seedParams());
@@ -635,17 +663,9 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     }
 
     function _assertConfigEq(PoolId poolId, VolatileFeeConfig memory expected) internal view {
-        VolatileFeeConfig memory stored;
-        (
-            stored.restingSpreadE6,
-            stored.backrunCaptureFractionE6,
-            stored.midFadeRateE6,
-            stored.maxMidFadeE6,
-            stored.skewRateE6,
-            stored.maxSkewStepE6,
-            stored.maxSkewE6,
-            stored.backrunThresholdE6
-        ) = feeConfigurationImplementation.feeConfig(poolId);
+        (, bytes memory data) = address(feeConfigurationImplementation)
+            .staticcall(abi.encodeCall(feeConfigurationImplementation.feeConfig, (poolId)));
+        VolatileFeeConfig memory stored = abi.decode(data, (VolatileFeeConfig));
         assertEq(keccak256(abi.encode(stored)), keccak256(abi.encode(expected)), "config");
     }
 

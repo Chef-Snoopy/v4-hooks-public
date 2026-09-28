@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/5da2cfa8bee25ed4c75eb6e4295795254f90cf6c/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -102,7 +102,9 @@ function feeConfig(PoolId poolId)
             uint24 skewRateE6,
             uint24 maxSkewStepE6,
             uint24 maxSkewE6,
-            uint24 backrunThresholdE6
+            uint24 backrunThresholdE6,
+            uint24 restoreFractionE6,
+            uint24 restoreThresholdE6
         );
 ```
 
@@ -124,6 +126,8 @@ function feeConfig(PoolId poolId)
 | maxSkewStepE6 | `uint24` | Max skew change per block |
 | maxSkewE6 | `uint24` | Skew ceiling |
 | backrunThresholdE6 | `uint24` | Min price impact that arms the backrun charge |
+| restoreFractionE6 | `uint24` | Fraction of the baseline in the next block's baseline calculation |
+| restoreThresholdE6 | `uint24` | Price impact level that triggers the restore mechanism |
 
 <a id="feestate-poolid"></a>
 
@@ -290,6 +294,22 @@ function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure;
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _maxMidFadeE6 | `uint24` | The fade cap to validate |
+
+<a id="_validaterestorefractione6-uint24"></a>
+
+### _validateRestoreFractionE6
+
+Validates the restore fraction against 100% (1e6)
+
+```solidity
+function _validateRestoreFractionE6(uint24 _restoreFractionE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _restoreFractionE6 | `uint24` | The restore fraction to validate |
 
 ## Structs
 

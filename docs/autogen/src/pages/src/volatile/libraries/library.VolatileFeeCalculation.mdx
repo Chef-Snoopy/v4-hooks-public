@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d1e7b7c8a242702f29d254ce90706aa5f0147cd9/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -162,7 +162,7 @@ function displacementContinuingFee(
 | ---- | ---- | ----------- |
 | feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
 
-<a id="temporarybackrunfee-uint24-uint24-relativemove-uint24-uint24"></a>
+<a id="temporarybackrunfee-uint24-uint24-relativemove-uint24-uint24-uint24-uint24"></a>
 
 ### temporaryBackrunFee
 
@@ -174,7 +174,9 @@ function temporaryBackrunFee(
         uint24 oldPermFeeE6,
         RelativeMove blockPriceImpact,
         uint24 backrunCaptureFractionE6,
-        uint24 backrunThresholdE6
+        uint24 backrunThresholdE6,
+        uint24 restoreFractionE6,
+        uint24 restoreThresholdE6
     ) internal pure returns (uint24 tempFeeE6);
 ```
 
@@ -187,6 +189,8 @@ function temporaryBackrunFee(
 | blockPriceImpact | `RelativeMove` | Price impact since the previous block open |
 | backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
 | backrunThresholdE6 | `uint24` | Price impact level that arms the backrun charge |
+| restoreFractionE6 | `uint24` |  |
+| restoreThresholdE6 | `uint24` |  |
 
 **Returns**
 

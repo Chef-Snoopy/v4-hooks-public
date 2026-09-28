@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {RelativeMove, RelativeMoveLibrary} from "./RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../interfaces/IVolatileFeeConfiguration.sol";
 
@@ -118,17 +119,26 @@ library VolatileFeeCalculation {
         uint24 oldPermFeeE6,
         RelativeMove blockPriceImpact,
         uint24 backrunCaptureFractionE6,
-        uint24 backrunThresholdE6
+        uint24 backrunThresholdE6,
+        uint24 restoreFractionE6,
+        uint24 restoreThresholdE6
     ) internal pure returns (uint24 tempFeeE6) {
-        // tempFee = (newPermFee - oldPermFee) + (blockPriceImpact >= backrunThreshold ? backrunCaptureFraction * blockPriceImpact)
-        // newPermFee = min(oldPermFee + step, maxSkew) and oldPermFee <= maxSkew: every config write resets it
-        // to restingSpread / 2 <= maxSkew and newPermanentFee never exceeds maxSkew. So new >= old; no underflow.
-        unchecked {
-            tempFeeE6 = newPermFeeE6 - oldPermFeeE6;
+        // tempFee has 2 components:
+        if (blockPriceImpact.gte(restoreThresholdE6)) {
+            // restore term = restoreFraction * (newPermFee - oldPermFee), applied only when the price moved more than the restoreThresholdE6
+            uint256 feeDelta;
+            unchecked {
+                // newPermFee = min(oldPermFee + step, maxSkew) and oldPermFee <= maxSkew: every config write resets it
+                // to restingSpread / 2 <= maxSkew and newPermanentFee never exceeds maxSkew. So new >= old; no underflow.
+                feeDelta = uint256(newPermFeeE6 - oldPermFeeE6); // cast to u256 for muldiv
+            }
+
+            // feeDelta is capped at u24max, restoreFraction is capped at 1e6 so the product must be capped at u24max
+            tempFeeE6 = uint24(FixedPointMathLib.mulDivUp(feeDelta, uint256(restoreFractionE6), uint256(ONE_E6)));
         }
+
         if (blockPriceImpact.gte(backrunThresholdE6)) {
             uint256 backrunFee = blockPriceImpact.mulUp(backrunCaptureFractionE6);
-
             tempFeeE6 = clampToMaxHookFeeE6(uint256(tempFeeE6) + backrunFee);
         }
     }
@@ -158,7 +168,9 @@ library VolatileFeeCalculation {
             oldLeanPermFeeE6,
             blockPriceImpact,
             config.backrunCaptureFractionE6,
-            config.backrunThresholdE6
+            config.backrunThresholdE6,
+            config.restoreFractionE6,
+            config.restoreThresholdE6
         );
         newAskPermFeeE6 = tempOnBid ? newLeanPermFeeE6 : config.restingSpreadE6 - newLeanPermFeeE6;
     }

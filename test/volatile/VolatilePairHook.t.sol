@@ -79,7 +79,9 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
             skewRateE6: 77_000,
             maxSkewStepE6: 222,
             maxSkewE6: 800, // in [ceil(1001/2), 1001]
-            backrunThresholdE6: 1234
+            backrunThresholdE6: 1234,
+            restoreFractionE6: 333_333,
+            restoreThresholdE6: 4321
         });
     }
 
@@ -154,7 +156,7 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
         assertEq(uint24(rawState >> 224), 0); // tempFeeE6
         assertEq(uint8(rawState >> 248), 0); // tempOnBid
 
-        // feeConfig[poolId]: the eight config fields in declaration order
+        // feeConfig[poolId]: the ten config fields in declaration order
         uint256 raw = uint256(vm.load(address(hook), _configSlot(poolId)));
         assertEq(uint24(raw), config.restingSpreadE6);
         assertEq(uint24(raw >> 24), config.backrunCaptureFractionE6);
@@ -164,7 +166,9 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
         assertEq(uint24(raw >> 120), config.maxSkewStepE6);
         assertEq(uint24(raw >> 144), config.maxSkewE6);
         assertEq(uint24(raw >> 168), config.backrunThresholdE6);
-        assertEq(raw >> 192, 0);
+        assertEq(uint24(raw >> 192), config.restoreFractionE6);
+        assertEq(uint24(raw >> 216), config.restoreThresholdE6);
+        assertEq(raw >> 240, 0);
 
         // each value is exactly one word
         assertEq(uint256(vm.load(address(hook), bytes32(uint256(_stateSlot(poolId)) + 1))), 0);
@@ -370,6 +374,8 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
         assertEq(stored.maxSkewStepE6, config.maxSkewStepE6);
         assertEq(stored.maxSkewE6, config.maxSkewE6);
         assertEq(stored.backrunThresholdE6, config.backrunThresholdE6);
+        assertEq(stored.restoreFractionE6, config.restoreFractionE6);
+        assertEq(stored.restoreThresholdE6, config.restoreThresholdE6);
 
         VolatileFeeState memory state = _storedState(poolId);
         assertEq(state.blockNumber, 0, "zeroed until the first swap");
@@ -388,7 +394,7 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
         PoolId untouched = unusedPoolKey.toId();
         assertEq(
             keccak256(abi.encode(_storedConfig(untouched))),
-            keccak256(abi.encode(VolatileFeeConfig(0, 0, 0, 0, 0, 0, 0, 0)))
+            keccak256(abi.encode(VolatileFeeConfig(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
         );
         VolatileFeeState memory zeroState;
         assertEq(keccak256(abi.encode(_storedState(untouched))), keccak256(abi.encode(zeroState)));

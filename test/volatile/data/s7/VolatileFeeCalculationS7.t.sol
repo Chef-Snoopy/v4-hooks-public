@@ -32,7 +32,13 @@ contract VolatileFeeCalculationS7Test is VolatileVectorTestBase {
 
     function test_s7_temporaryBackrunFee_matchesG() public pure {
         uint256 bidTempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
-            H_ASK_E6, NEUTRAL_PERM_FEE_E6, _moveFromE6(PI_E6, true), BACKRUN_CAPTURE_FRACTION_E6, BACKRUN_THRESHOLD_E6
+            H_ASK_E6,
+            NEUTRAL_PERM_FEE_E6,
+            _moveFromE6(PI_E6, true),
+            BACKRUN_CAPTURE_FRACTION_E6,
+            BACKRUN_THRESHOLD_E6,
+            RESTORE_FRACTION_E6,
+            RESTORE_THRESHOLD_E6
         );
         assertGeWithinPip(bidTempFeeE6, G_BID_E6, "gBid");
     }

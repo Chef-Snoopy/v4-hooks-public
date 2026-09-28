@@ -14,6 +14,8 @@ struct VolatileFeeConfig {
     uint24 maxSkewStepE6; // max skew change per block
     uint24 maxSkewE6; // skew ceiling; must be <= restingSpreadE6
     uint24 backrunThresholdE6; // min price impact that arms the backrun charge
+    uint24 restoreFractionE6; // fraction of the baseline in the next block's baseline calculation
+    uint24 restoreThresholdE6; // min price impact that arms the baseline restore
 }
 
 /// @notice Per-pool fee state, advanced on the first swap of each block. Packs into one slot.
@@ -66,6 +68,10 @@ interface IVolatileFeeConfiguration {
     /// @notice Thrown when maxMidFadeE6 exceeds the maximum hook fee; baseline + fade must fit a uint24
     /// @param maxMidFadeE6 The submitted continuing-fade cap
     error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
+
+    /// @notice Thrown when restoreFractionE6 exceeds 1e6 (100%), which would overflow the next block's baseline calculation
+    /// @param restoreFractionE6 The submitted restore fraction
+    error InvalidRestoreFraction(uint24 restoreFractionE6);
 
     /// @notice Thrown when poolIds and feeConfigs arrays have different lengths
     error LengthMismatch();

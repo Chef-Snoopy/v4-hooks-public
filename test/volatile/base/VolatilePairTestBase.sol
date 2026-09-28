@@ -93,7 +93,9 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
             skewRateE6: SKEW_RATE_E6,
             maxSkewStepE6: MAX_SKEW_STEP_E6,
             maxSkewE6: MAX_SKEW_E6,
-            backrunThresholdE6: BACKRUN_THRESHOLD_E6
+            backrunThresholdE6: BACKRUN_THRESHOLD_E6,
+            restoreFractionE6: RESTORE_FRACTION_E6,
+            restoreThresholdE6: RESTORE_THRESHOLD_E6
         });
     }
 
@@ -187,17 +189,10 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
             );
     }
 
-    function _storedConfig(PoolId poolId) internal view returns (VolatileFeeConfig memory c) {
-        (
-            c.restingSpreadE6,
-            c.backrunCaptureFractionE6,
-            c.midFadeRateE6,
-            c.maxMidFadeE6,
-            c.skewRateE6,
-            c.maxSkewStepE6,
-            c.maxSkewE6,
-            c.backrunThresholdE6
-        ) = hook.feeConfig(poolId);
+    /// Ten return words run the stack too deep when assigned field by field.
+    function _storedConfig(PoolId poolId) internal view returns (VolatileFeeConfig memory) {
+        (, bytes memory data) = address(hook).staticcall(abi.encodeCall(hook.feeConfig, (poolId)));
+        return abi.decode(data, (VolatileFeeConfig));
     }
 
     function _storedState(PoolId poolId) internal view returns (VolatileFeeState memory s) {
@@ -206,7 +201,7 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
 
     /// Baselines are not stored; derived from the stored skew and temp fee the way `_getFee` derives them.
     function _storedBaselines(PoolId poolId) internal view returns (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) {
-        (uint24 restingSpreadE6,,,,,,,) = hook.feeConfig(poolId);
+        (uint24 restingSpreadE6,,,,,,,,,) = hook.feeConfig(poolId);
         return _baselines(_storedState(poolId), restingSpreadE6);
     }
 }

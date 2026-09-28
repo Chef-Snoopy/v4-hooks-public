@@ -165,7 +165,9 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
                 skewRateE6: type(uint24).max,
                 maxSkewStepE6: 1, // = band = 2 * maxSkew - RS
                 maxSkewE6: MAX_HOOK_FEE_E6,
-                backrunThresholdE6: 0
+                backrunThresholdE6: 0,
+                restoreFractionE6: RESTORE_FRACTION_E6,
+                restoreThresholdE6: RESTORE_THRESHOLD_E6
             })
         );
 

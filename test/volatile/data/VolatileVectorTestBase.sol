@@ -22,6 +22,9 @@ abstract contract VolatileVectorTestBase is Test {
     uint24 internal constant RESTING_SPREAD_E6 = 900;
     uint24 internal constant BACKRUN_THRESHOLD_E6 = 1000;
     uint24 internal constant BACKRUN_CAPTURE_FRACTION_E6 = 500_000;
+    // 100%, always armed: the temp fee carries the whole permanent step
+    uint24 internal constant RESTORE_FRACTION_E6 = uint24(VolatileFeeCalculation.ONE_E6);
+    uint24 internal constant RESTORE_THRESHOLD_E6 = 0;
     uint24 internal constant NEUTRAL_PERM_FEE_E6 = RESTING_SPREAD_E6 / 2;
 
     /// @notice `expected <= actual <= expected + ROUNDING_TOLERANCE_E6`: the library rounds up to whole
@@ -92,6 +95,8 @@ abstract contract VolatileVectorTestBase is Test {
         config.maxSkewE6 = maxSkewE6;
         config.backrunThresholdE6 = BACKRUN_THRESHOLD_E6;
         config.backrunCaptureFractionE6 = BACKRUN_CAPTURE_FRACTION_E6;
+        config.restoreFractionE6 = RESTORE_FRACTION_E6;
+        config.restoreThresholdE6 = RESTORE_THRESHOLD_E6;
     }
 
     /// @notice `newPermAndTempFee` composed with `baselineFee` per side: h_ask and the f columns for one block.

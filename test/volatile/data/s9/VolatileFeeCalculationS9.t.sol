@@ -66,7 +66,9 @@ contract VolatileFeeCalculationS9Test is VolatileVectorTestBase {
                 oldLeanPermFeeE6,
                 _moveFromE6(cases[i].piE6, up),
                 cases[i].backrunCaptureFractionE6,
-                cases[i].backrunThresholdE6
+                cases[i].backrunThresholdE6,
+                RESTORE_FRACTION_E6,
+                RESTORE_THRESHOLD_E6
             );
             assertGeWithinPip(tempFeeE6, up ? cases[i].gBidE6 : cases[i].gAskE6, _label(cases[i].name, "g backrun"));
         }
@@ -82,6 +84,8 @@ contract VolatileFeeCalculationS9Test is VolatileVectorTestBase {
             config.maxSkewE6 = cases[i].maxSkewE6;
             config.backrunThresholdE6 = cases[i].backrunThresholdE6;
             config.backrunCaptureFractionE6 = cases[i].backrunCaptureFractionE6;
+            config.restoreFractionE6 = RESTORE_FRACTION_E6;
+            config.restoreThresholdE6 = RESTORE_THRESHOLD_E6;
             (uint256 newAskPermFeeE6, uint256 askBaselineFeeE6, uint256 bidBaselineFeeE6) =
                 _newPermAndBaselines(config, _neutralAskE6(cases[i]), cases[i].piE6, cases[i].piE6 > 0);
             assertGeWithinPip(newAskPermFeeE6, cases[i].hAskE6, _label(cases[i].name, "hAsk"));

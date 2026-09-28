@@ -5,7 +5,7 @@ description: "Static per-pool config for the volatile fee algorithm, set by the 
 
 # VolatileFeeConfig
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/7199895db30d0148e571a0b7e90a0f7770a3b531/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
 
 Static per-pool config for the volatile fee algorithm, set by the config manager.
 
@@ -25,6 +25,8 @@ struct VolatileFeeConfig {
     uint24 maxSkewStepE6; // max skew change per block
     uint24 maxSkewE6; // skew ceiling; must be <= restingSpreadE6
     uint24 backrunThresholdE6; // min price impact that arms the backrun charge
+    uint24 restoreFractionE6; // fraction of the baseline in the next block's baseline calculation
+    uint24 restoreThresholdE6; // min price impact that arms the baseline restore
 }
 ```
 
@@ -40,4 +42,6 @@ struct VolatileFeeConfig {
 | maxSkewStepE6 | `uint24` |  |
 | maxSkewE6 | `uint24` |  |
 | backrunThresholdE6 | `uint24` |  |
+| restoreFractionE6 | `uint24` |  |
+| restoreThresholdE6 | `uint24` |  |
 

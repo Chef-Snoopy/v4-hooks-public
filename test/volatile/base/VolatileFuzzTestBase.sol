@@ -12,6 +12,8 @@ abstract contract VolatileFuzzTestBase is Test {
     uint24 internal constant MAX_HOOK_FEE_E6 = uint24(VolatileFeeCalculation.MAX_HOOK_FEE_E6); // 999_998
 
     uint24 internal constant MAX_RESTING_SPREAD_E6 = 2 * MAX_HOOK_FEE_E6; // 1_999_996
+    uint24 internal constant RESTORE_FRACTION_E6 = uint24(VolatileFeeCalculation.ONE_E6);
+    uint24 internal constant RESTORE_THRESHOLD_E6 = 0;
 
     /// `relativeMove` against 2**96, scaled to E6, is 16_778_216 = 2**24 + 1000: truncated to uint24 the move would
     /// read 1000.
@@ -45,7 +47,9 @@ abstract contract VolatileFuzzTestBase is Test {
             // 2 * maxSkew - RS is the width of the perm-fee band [RS - maxSkew, maxSkew]
             maxSkewStepE6: uint24(bound(uint256(s.maxSkewStepSeed), 0, 2 * uint256(maxSkewE6) - restingSpreadE6)),
             maxSkewE6: maxSkewE6,
-            backrunThresholdE6: s.backrunThresholdSeed
+            backrunThresholdE6: s.backrunThresholdSeed,
+            restoreFractionE6: RESTORE_FRACTION_E6,
+            restoreThresholdE6: RESTORE_THRESHOLD_E6
         });
     }
 

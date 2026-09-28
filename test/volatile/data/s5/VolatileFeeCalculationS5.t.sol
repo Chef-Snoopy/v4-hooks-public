@@ -75,7 +75,9 @@ contract VolatileFeeCalculationS5Test is VolatileVectorTestBase {
                 oldLeanE6,
                 _moveFromE6(_abs(rows[i].piE6), up),
                 BACKRUN_CAPTURE_FRACTION_E6,
-                BACKRUN_THRESHOLD_E6
+                BACKRUN_THRESHOLD_E6,
+                RESTORE_FRACTION_E6,
+                RESTORE_THRESHOLD_E6
             );
             assertGeWithinPip(tempFeeE6, expectedBackrunTemp, _label(_name(rows[i]), "g backrun"));
         }

@@ -370,7 +370,13 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         returns (uint24)
     {
         return VolatileFeeCalculation.temporaryBackrunFee(
-            newPermFeeE6, oldPermFeeE6, _moveFromE6(piE6, false), bcfE6, thresholdE6
+            newPermFeeE6,
+            oldPermFeeE6,
+            _moveFromE6(piE6, false),
+            bcfE6,
+            thresholdE6,
+            RESTORE_FRACTION_E6,
+            RESTORE_THRESHOLD_E6
         );
     }
 
@@ -382,6 +388,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         s.skewRateE6 = SKEW_RATE_E6;
         s.backrunCaptureFractionE6 = BCF_E6;
         s.backrunThresholdE6 = BACKRUN_THRESHOLD_E6;
+        s.restoreFractionE6 = RESTORE_FRACTION_E6;
+        s.restoreThresholdE6 = RESTORE_THRESHOLD_E6;
     }
 
     function _assertTopOfBlock(

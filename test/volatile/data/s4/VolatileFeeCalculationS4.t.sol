@@ -71,7 +71,13 @@ contract VolatileFeeCalculationS4Test is VolatileVectorTestBase {
                 ? (rows[i].hAskE6, rows[i - 1].hAskE6, rows[i].gBidE6)
                 : (rows[i].hBidE6, rows[i - 1].hBidE6, rows[i].gAskE6);
             uint256 tempFeeE6 = VolatileFeeCalculation.temporaryBackrunFee(
-                newLeanE6, oldLeanE6, _moveFromE6(rows[i].piE6, up), BACKRUN_CAPTURE_FRACTION_E6, BACKRUN_THRESHOLD_E6
+                newLeanE6,
+                oldLeanE6,
+                _moveFromE6(rows[i].piE6, up),
+                BACKRUN_CAPTURE_FRACTION_E6,
+                BACKRUN_THRESHOLD_E6,
+                RESTORE_FRACTION_E6,
+                RESTORE_THRESHOLD_E6
             );
             assertGeWithinPip(tempFeeE6, expectedBackrunTemp, _label(_name(rows[i]), "g backrun"));
         }
