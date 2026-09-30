@@ -5,7 +5,7 @@ description: "Interface for the volatile fee configuration (config-manager-owned
 
 # IVolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
 
 Interface for the volatile fee configuration (config-manager-owned per-pool params).
 
@@ -118,7 +118,7 @@ error BackrunCaptureFractionTooLarge(uint24 backrunCaptureFractionE6);
 
 ### RestingSpreadTooLarge
 
-Thrown when restingSpreadE6 exceeds 2 * MAX_HOOK_FEE_E6, the sum of both sides' fee ceilings
+Thrown when restingSpreadE6 exceeds 2 * MAX_FEE_E6, the sum of both sides' fee ceilings
 
 ```solidity
 error RestingSpreadTooLarge(uint24 restingSpreadE6);
@@ -130,12 +130,12 @@ error RestingSpreadTooLarge(uint24 restingSpreadE6);
 | ---- | ---- | ----------- |
 | restingSpreadE6 | `uint24` | The submitted resting spread |
 
-### MaxSkewAboveMaxHookFee
+### MaxSkewAboveMaxFee
 
-Thrown when maxSkewE6 exceeds MAX_HOOK_FEE_E6; the excess is skew band the fee clamp would remove
+Thrown when maxSkewE6 exceeds MAX_FEE_E6; the excess is skew band the fee clamp would remove
 
 ```solidity
-error MaxSkewAboveMaxHookFee(uint24 maxSkewE6);
+error MaxSkewAboveMaxFee(uint24 maxSkewE6);
 ```
 
 **Parameters**
@@ -162,7 +162,7 @@ error MaxSkewStepTooLarge(uint24 maxSkewStepE6, uint24 maxSkewE6, uint24 resting
 
 ### MaxMidFadeTooLarge
 
-Thrown when maxMidFadeE6 exceeds the maximum hook fee; baseline + fade must fit a uint24
+Thrown when maxMidFadeE6 exceeds MAX_FEE_E6; baseline + fade must fit a uint24
 
 ```solidity
 error MaxMidFadeTooLarge(uint24 maxMidFadeE6);

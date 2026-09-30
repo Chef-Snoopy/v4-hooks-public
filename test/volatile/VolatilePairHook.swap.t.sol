@@ -309,7 +309,7 @@ contract VolatilePairHookSwapTest is VolatilePairTestBase, Deployers {
         );
     }
 
-    function test_swap_withMaxProtocolFee_compoundsOnTopOfTheHookFee() public {
+    function test_swap_withMaxProtocolFee_compoundsOnTopOfTheLpFee() public {
         _setMaxProtocolFee();
         _advanceBlocks(1);
 

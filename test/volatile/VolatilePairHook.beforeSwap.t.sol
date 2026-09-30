@@ -155,16 +155,16 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
 
     /// Largest odd pie the validator accepts, so the last leg's pre-clamp baseline sum (1_999_996) is the largest a
     /// baseline add can see. The sequence fuzz (invariants.t.sol) asserts only <=.
-    function test_beforeSwap_maxPie_fullRangeRoundTrip_bothSidesChargeMaxHookFee() public {
+    function test_beforeSwap_maxPie_fullRangeRoundTrip_bothSidesChargeMaxFee() public {
         _setConfig(
             VolatileFeeConfig({
                 restingSpreadE6: MAX_RESTING_SPREAD_E6 - 1, // odd: resets to 999_997 ask / 999_998 bid
                 backrunCaptureFractionE6: uint24(VolatileFeeCalculation.ONE_E6),
                 midFadeRateE6: type(uint24).max,
-                maxMidFadeE6: MAX_HOOK_FEE_E6,
+                maxMidFadeE6: MAX_FEE_E6,
                 skewRateE6: type(uint24).max,
                 maxSkewStepE6: 1, // = band = 2 * maxSkew - RS
-                maxSkewE6: MAX_HOOK_FEE_E6,
+                maxSkewE6: MAX_FEE_E6,
                 backrunThresholdE6: 0,
                 restoreFractionE6: RESTORE_FRACTION_E6,
                 restoreThresholdE6: RESTORE_THRESHOLD_E6
@@ -176,19 +176,19 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
 
         // Same block: displacement = (2**96 - 1) * 1e6 up (ratioX96 floors to 0 and is clamped to 1)
         _setAmmPrice(TickMath.MAX_SQRT_PRICE - 1);
-        assertEq(_callBeforeSwap(testPoolKey, true), MAX_HOOK_FEE_E6, "mid-block bid");
-        assertEq(_callBeforeSwap(testPoolKey, false), MAX_HOOK_FEE_E6, "mid-block ask");
+        assertEq(_callBeforeSwap(testPoolKey, true), MAX_FEE_E6, "mid-block bid");
+        assertEq(_callBeforeSwap(testPoolKey, false), MAX_FEE_E6, "mid-block ask");
 
         // Next block: PI = (2**96 - 1) * 1e6 up vs. the MIN_SQRT_PRICE open; askPerm steps 999_997 -> 999_998
         _advanceBlocks(1);
-        assertEq(_callBeforeSwap(testPoolKey, true), MAX_HOOK_FEE_E6, "up top-of-block bid");
-        assertEq(_callBeforeSwap(testPoolKey, false), MAX_HOOK_FEE_E6, "up top-of-block ask");
+        assertEq(_callBeforeSwap(testPoolKey, true), MAX_FEE_E6, "up top-of-block bid");
+        assertEq(_callBeforeSwap(testPoolKey, false), MAX_FEE_E6, "up top-of-block ask");
 
         // Next block: PI = 1e6 down vs. the MAX_SQRT_PRICE - 1 open; askBaseline = 999_997 + (1 + 999_998) clamps
         _setAmmPrice(TickMath.MIN_SQRT_PRICE);
         _advanceBlocks(1);
-        assertEq(_callBeforeSwap(testPoolKey, true), MAX_HOOK_FEE_E6, "down top-of-block bid");
-        assertEq(_callBeforeSwap(testPoolKey, false), MAX_HOOK_FEE_E6, "down top-of-block ask");
+        assertEq(_callBeforeSwap(testPoolKey, true), MAX_FEE_E6, "down top-of-block bid");
+        assertEq(_callBeforeSwap(testPoolKey, false), MAX_FEE_E6, "down top-of-block ask");
     }
 
     /// askPerm = 450 + 300 = 750 < maxSkew 900, so the step binds;
@@ -199,7 +199,7 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
         _advanceBlocks(1);
 
         (uint24 feeZeroForOneE6, uint24 feeOneForZeroE6) = hook.getFee(testPoolKey);
-        assertEq(feeZeroForOneE6, MAX_HOOK_FEE_E6, "bid baseline clamped");
+        assertEq(feeZeroForOneE6, MAX_FEE_E6, "bid baseline clamped");
         assertEq(feeOneForZeroE6, NEUTRAL_FEE_E6 + MAX_SKEW_STEP_E6, "ask perm steps by maxSkewStep, under maxSkew");
 
         _callBeforeSwap(testPoolKey, true);
@@ -208,8 +208,8 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
         assertTrue(s.tempOnBid, "temp fee sits on the bid side");
         (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _storedBaselines(testPoolKey.toId());
         assertEq(askBaselineFeeE6, s.askPermFeeE6, "no backrun charge on the leaning side");
-        assertEq(s.tempFeeE6, MAX_HOOK_FEE_E6, "step + capture clamps as a whole");
-        assertEq(bidBaselineFeeE6, MAX_HOOK_FEE_E6, "1_000_148 clamps");
+        assertEq(s.tempFeeE6, MAX_FEE_E6, "step + capture clamps as a whole");
+        assertEq(bidBaselineFeeE6, MAX_FEE_E6, "1_000_148 clamps");
     }
 
     // -------------------------------------------------------------------------

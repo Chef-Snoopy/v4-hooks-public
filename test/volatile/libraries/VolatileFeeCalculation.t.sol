@@ -115,16 +115,15 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(VolatileFeeCalculation.displacementBackrunFee(NEUTRAL_PERM_E6, _moveFromE6(2_000_000, false), 0), 1500);
     }
 
-    function test_displacementBackrunFee_clampsToMaxHookFee() public pure {
+    function test_displacementBackrunFee_clampsToMaxFee() public pure {
         assertEq(
             VolatileFeeCalculation.displacementBackrunFee(
                 NEUTRAL_PERM_E6, _moveFromE6(2_000_000, false), uint24(ONE_E6)
             ),
-            MAX_HOOK_FEE_E6
+            MAX_FEE_E6
         );
         assertEq(
-            VolatileFeeCalculation.displacementBackrunFee(0, _moveFromE6(MAX_PI_E6, false), uint24(ONE_E6)),
-            MAX_HOOK_FEE_E6
+            VolatileFeeCalculation.displacementBackrunFee(0, _moveFromE6(MAX_PI_E6, false), uint24(ONE_E6)), MAX_FEE_E6
         );
     }
 
@@ -134,7 +133,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint256 dispSeedB,
         uint24 bcfSeed
     ) public pure {
-        uint24 baselineFeeE6 = uint24(bound(uint256(baselineSeed), 0, MAX_HOOK_FEE_E6));
+        uint24 baselineFeeE6 = uint24(bound(uint256(baselineSeed), 0, MAX_FEE_E6));
         uint256 dispAE6 = bound(dispSeedA, 0, MAX_PI_E6);
         uint256 dispBE6 = bound(dispSeedB, dispAE6, MAX_PI_E6);
         uint24 bcfE6 = uint24(bound(uint256(bcfSeed), 0, ONE_E6));
@@ -143,7 +142,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint24 feeBE6 = VolatileFeeCalculation.displacementBackrunFee(baselineFeeE6, _moveFromE6(dispBE6, false), bcfE6);
 
         assertGe(feeAE6, baselineFeeE6, "fee below baseline");
-        assertLe(feeBE6, MAX_HOOK_FEE_E6, "fee above ceiling");
+        assertLe(feeBE6, MAX_FEE_E6, "fee above ceiling");
         assertLe(feeAE6, feeBE6, "larger displacement pays less");
     }
 
@@ -184,13 +183,11 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         );
     }
 
-    /// The library clamps baseline + fade (here 2 * MAX_HOOK_FEE_E6) to the ceiling; the hook adds no clamp of its own.
-    function test_displacementContinuingFee_clampsToMaxHookFee() public pure {
+    /// The library clamps baseline + fade (here 2 * MAX_FEE_E6) to the ceiling; the hook adds no clamp of its own.
+    function test_displacementContinuingFee_clampsToMaxFee() public pure {
         assertEq(
-            VolatileFeeCalculation.displacementContinuingFee(
-                MAX_HOOK_FEE_E6, _moveFromE6(MAX_PI_E6, false), 1, MAX_HOOK_FEE_E6
-            ),
-            MAX_HOOK_FEE_E6
+            VolatileFeeCalculation.displacementContinuingFee(MAX_FEE_E6, _moveFromE6(MAX_PI_E6, false), 1, MAX_FEE_E6),
+            MAX_FEE_E6
         );
     }
 
@@ -201,10 +198,10 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint24 rateE6,
         uint24 maxFadeSeed
     ) public pure {
-        uint24 baselineFeeE6 = uint24(bound(uint256(baselineSeed), 0, MAX_HOOK_FEE_E6));
+        uint24 baselineFeeE6 = uint24(bound(uint256(baselineSeed), 0, MAX_FEE_E6));
         uint256 dispAE6 = bound(dispSeedA, 0, MAX_PI_E6);
         uint256 dispBE6 = bound(dispSeedB, dispAE6, MAX_PI_E6);
-        uint24 maxFadeE6 = uint24(bound(uint256(maxFadeSeed), 0, MAX_HOOK_FEE_E6));
+        uint24 maxFadeE6 = uint24(bound(uint256(maxFadeSeed), 0, MAX_FEE_E6));
 
         uint24 feeAE6 = VolatileFeeCalculation.displacementContinuingFee(
             baselineFeeE6, _moveFromE6(dispAE6, false), rateE6, maxFadeE6
@@ -236,8 +233,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
     }
 
     /// Step + captured term (500 + ~2**96 * 1e6) clamps as a whole, so the temp fee alone never exceeds the ceiling.
-    function test_temporaryBackrunFee_clampsToMaxHookFee() public pure {
-        assertEq(_tempFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_HOOK_FEE_E6);
+    function test_temporaryBackrunFee_clampsToMaxFee() public pure {
+        assertEq(_tempFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_FEE_E6);
     }
 
     function test_fuzz_temporaryBackrunFee_gatedBoundedAndMonotone(
@@ -248,8 +245,8 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint24 bcfSeed,
         uint24 backrunThresholdE6
     ) public pure {
-        uint24 oldPermFeeE6 = uint24(bound(uint256(oldPermSeed), 0, MAX_HOOK_FEE_E6));
-        uint24 stepE6 = uint24(bound(uint256(stepSeed), 0, MAX_HOOK_FEE_E6 - oldPermFeeE6));
+        uint24 oldPermFeeE6 = uint24(bound(uint256(oldPermSeed), 0, MAX_FEE_E6));
+        uint24 stepE6 = uint24(bound(uint256(stepSeed), 0, MAX_FEE_E6 - oldPermFeeE6));
         uint256 piAE6 = bound(piSeedA, 0, MAX_PI_E6);
         uint256 piBE6 = bound(piSeedB, piAE6, MAX_PI_E6);
         uint24 bcfE6 = uint24(bound(uint256(bcfSeed), 0, ONE_E6));
@@ -259,7 +256,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
 
         if (piAE6 < backrunThresholdE6) assertEq(feeAE6, stepE6, "charged below threshold");
         assertGe(feeAE6, stepE6, "fee below step");
-        assertLe(feeBE6, uint256(stepE6) + MAX_HOOK_FEE_E6, "fee above step + ceiling");
+        assertLe(feeBE6, uint256(stepE6) + MAX_FEE_E6, "fee above step + ceiling");
         assertLe(feeAE6, feeBE6, "larger move charges less");
     }
 
@@ -336,7 +333,7 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         uint256 otherBaseline = up ? bidBaselineFeeE6 : askBaselineFeeE6;
         uint256 otherOldPermE6 = s.restingSpreadE6 - oldLean;
         assertGe(otherBaseline, otherOldPermE6, "backrun side below its perm fee");
-        assertLe(otherBaseline, otherOldPermE6 + MAX_HOOK_FEE_E6, "backrun side above perm fee + ceiling");
+        assertLe(otherBaseline, otherOldPermE6 + MAX_FEE_E6, "backrun side above perm fee + ceiling");
         if (piE6 < s.backrunThresholdE6) assertEq(otherBaseline, otherOldPermE6, "charged below threshold");
         if (piE6 == 0) {
             assertEq(newLean, oldLean, "flat block moved the perm fee");

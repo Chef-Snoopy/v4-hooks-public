@@ -15,10 +15,13 @@ library VolatileFeeCalculation {
     /// @notice 1e6 is 100% in pips format
     uint256 internal constant ONE_E6 = 1e6;
 
-    /// @notice Maximum LP fee the hook can charge. Pool.swap combines the LP fee with the protocol fee.
-    ///         Hook fee of 999_999 compounds to 1e6 for any nonzero protocol fee, whereas 999_998 hits
-    ///         999_999 for any non-zero protocol fee.
-    uint256 internal constant MAX_HOOK_FEE_E6 = 1e6 - 2;
+    /// @notice Maximum LP fee clampToMaxFeeE6 returns. Pool.swap compounds the LP fee with the directional
+    ///         protocol fee (protocol taken from the input first, LP fee on the remainder) and
+    ///         rounds the result UP to a whole pip, so an LP fee of 999_999 compounds to exactly
+    ///         1e6 (100%) for ANY nonzero protocol fee; 999_998 compounds to at most 999_999 for
+    ///         all protocol fees up to ProtocolFeeLibrary.MAX_PROTOCOL_FEE
+    ///         (= LPFeeLibrary.MAX_LP_FEE - 2).
+    uint256 internal constant MAX_FEE_E6 = 1e6 - 2;
 
     /// @notice Scale for the sqrt-ratio intermediate calculation
     uint256 internal constant Q48 = 2 ** 48;
@@ -75,7 +78,7 @@ library VolatileFeeCalculation {
     /// @param baselineFeeE6 Block's baseline fee for this side
     /// @param displacementFromTop Displacement from the block open
     /// @param backrunCaptureFractionE6 LP share of backrun profit
-    /// @return feeE6 Fee, clamped to MAX_HOOK_FEE_E6
+    /// @return feeE6 Fee, clamped to MAX_FEE_E6
     function displacementBackrunFee(
         uint24 baselineFeeE6,
         RelativeMove displacementFromTop,
@@ -84,7 +87,7 @@ library VolatileFeeCalculation {
         // Calculate the backrun fee, proportional to the displacement from the block open, rounded up once
         uint256 rawFeeE6 = uint256(baselineFeeE6) + displacementFromTop.mulUp(backrunCaptureFractionE6);
 
-        feeE6 = clampToMaxHookFeeE6(rawFeeE6);
+        feeE6 = clampToMaxFeeE6(rawFeeE6);
     }
 
     /// @notice Fee for a swap pushing further in the price-impact direction (the continuing side).
@@ -92,7 +95,7 @@ library VolatileFeeCalculation {
     /// @param displacementFromTop Displacement from the block open
     /// @param midFadeRateE6 Continuing-fee growth rate per unit move
     /// @param maxMidFadeE6 Continuing-side fee cap
-    /// @return feeE6 Fee, clamped to MAX_HOOK_FEE_E6
+    /// @return feeE6 Fee, clamped to MAX_FEE_E6
     function displacementContinuingFee(
         uint24 baselineFeeE6,
         RelativeMove displacementFromTop,
@@ -104,19 +107,19 @@ library VolatileFeeCalculation {
         uint256 fadeE6 = displacementFromTop.mulUp(midFadeRateE6);
         if (fadeE6 > maxMidFadeE6) fadeE6 = maxMidFadeE6;
 
-        feeE6 = clampToMaxHookFeeE6(uint256(baselineFeeE6) + fadeE6);
+        feeE6 = clampToMaxFeeE6(uint256(baselineFeeE6) + fadeE6);
     }
 
     /// @notice Temporary (one-block) fee on the backrun side at the top of a block.
-    /// @param newPermFeeE6 Updated permanent skew (this block)
-    /// @param oldPermFeeE6 Previous permanent skew (last block)
+    /// @param newLeanPermFeeE6 Leaning side's updated permanent fee (this block)
+    /// @param oldLeanPermFeeE6 Leaning side's previous permanent fee (last block)
     /// @param blockPriceImpact Price impact since the previous block open
     /// @param backrunCaptureFractionE6 LP share of backrun profit
     /// @param backrunThresholdE6 Price impact level that arms the backrun charge
     /// @return tempFeeE6 Temporary fee on the backrun side
     function temporaryBackrunFee(
-        uint24 newPermFeeE6,
-        uint24 oldPermFeeE6,
+        uint24 newLeanPermFeeE6,
+        uint24 oldLeanPermFeeE6,
         RelativeMove blockPriceImpact,
         uint24 backrunCaptureFractionE6,
         uint24 backrunThresholdE6,
@@ -125,12 +128,12 @@ library VolatileFeeCalculation {
     ) internal pure returns (uint24 tempFeeE6) {
         // tempFee has 2 components:
         if (blockPriceImpact.gte(restoreThresholdE6)) {
-            // restore term = restoreFraction * (newPermFee - oldPermFee), applied only when the price moved more than the restoreThresholdE6
+            // restore term = restoreFraction * (newLeanPermFee - oldLeanPermFee), applied only when the price moved more than the restoreThresholdE6
             uint256 feeDelta;
             unchecked {
-                // newPermFee = min(oldPermFee + step, maxSkew) and oldPermFee <= maxSkew: every config write resets it
+                // newLeanPermFee = min(oldLeanPermFee + step, maxSkew) and oldLeanPermFee <= maxSkew: every config write resets it
                 // to restingSpread / 2 <= maxSkew and newPermanentFee never exceeds maxSkew. So new >= old; no underflow.
-                feeDelta = uint256(newPermFeeE6 - oldPermFeeE6); // cast to u256 for muldiv
+                feeDelta = uint256(newLeanPermFeeE6 - oldLeanPermFeeE6); // cast to u256 for muldiv
             }
 
             // feeDelta is capped at u24max, restoreFraction is capped at 1e6 so the product must be capped at u24max
@@ -139,7 +142,7 @@ library VolatileFeeCalculation {
 
         if (blockPriceImpact.gte(backrunThresholdE6)) {
             uint256 backrunFee = blockPriceImpact.mulUp(backrunCaptureFractionE6);
-            tempFeeE6 = clampToMaxHookFeeE6(uint256(tempFeeE6) + backrunFee);
+            tempFeeE6 = clampToMaxFeeE6(uint256(tempFeeE6) + backrunFee);
         }
     }
 
@@ -150,14 +153,14 @@ library VolatileFeeCalculation {
     /// @param oldAskPermFeeE6 Previous block's permanent ask-side fee
     /// @param blockPriceImpact Price impact since the previous block open, with its direction
     /// @return newAskPermFeeE6 New permanent ask-side fee to store
-    /// @return tempFeeE6 Temporary fee for the block, clamped to MAX_HOOK_FEE_E6
+    /// @return tempFeeE6 Temporary fee for the block, clamped to MAX_FEE_E6
     /// @return tempOnBid True if the temp fee is on the bid side, false if on the ask side
     function newPermAndTempFee(VolatileFeeConfig memory config, uint24 oldAskPermFeeE6, RelativeMove blockPriceImpact)
         internal
         pure
         returns (uint24 newAskPermFeeE6, uint24 tempFeeE6, bool tempOnBid)
     {
-        // An up move makes buying dearer: the ask leans and the bid is the backrun side.
+        // An up move steps up the ask perm fee and puts the temp fee on the bid. A down move does the reverse.
         tempOnBid = blockPriceImpact.increased();
         uint24 oldLeanPermFeeE6 = tempOnBid ? oldAskPermFeeE6 : config.restingSpreadE6 - oldAskPermFeeE6;
         uint24 newLeanPermFeeE6 = newPermanentFee(
@@ -177,12 +180,12 @@ library VolatileFeeCalculation {
 
     /// @notice One side's top-of-block baseline from the stored skew and temp fee.
     /// @dev The leaning side's baseline is its permanent fee; the backrun side's adds the temp fee. Both
-    ///      permanent fees are <= maxSkewE6 <= MAX_HOOK_FEE_E6 by the config bounds, so only the temp
+    ///      permanent fees are <= maxSkewE6 <= MAX_FEE_E6 by the config bounds, so only the temp
     ///      side can exceed the ceiling and needs the clamp.
     /// @param state Pool's fee state
     /// @param restingSpreadE6 Permanent pie: ask + bid fee
     /// @param zeroForOne Swap direction; a sell (true) pays the bid side, a buy (false) the ask side
-    /// @return baselineFeeE6 Baseline for that side, clamped to MAX_HOOK_FEE_E6
+    /// @return baselineFeeE6 Baseline for that side, clamped to MAX_FEE_E6
     function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool zeroForOne)
         internal
         pure
@@ -190,13 +193,13 @@ library VolatileFeeCalculation {
     {
         uint24 permFeeE6 = zeroForOne ? restingSpreadE6 - state.askPermFeeE6 : state.askPermFeeE6;
         if (zeroForOne != state.tempOnBid) return permFeeE6;
-        baselineFeeE6 = clampToMaxHookFeeE6(uint256(permFeeE6) + state.tempFeeE6);
+        baselineFeeE6 = clampToMaxFeeE6(uint256(permFeeE6) + state.tempFeeE6);
     }
 
-    /// @notice Clamps a fee to MAX_HOOK_FEE_E6.
+    /// @notice Clamps a fee to MAX_FEE_E6.
     /// @param feeE6 Unclamped fee
-    /// @return Fee clamped to MAX_HOOK_FEE_E6
-    function clampToMaxHookFeeE6(uint256 feeE6) internal pure returns (uint24) {
-        return uint24(feeE6 > MAX_HOOK_FEE_E6 ? MAX_HOOK_FEE_E6 : feeE6);
+    /// @return Fee clamped to MAX_FEE_E6
+    function clampToMaxFeeE6(uint256 feeE6) internal pure returns (uint24) {
+        return uint24(feeE6 > MAX_FEE_E6 ? MAX_FEE_E6 : feeE6);
     }
 }

@@ -10,9 +10,9 @@ struct VolatileFeeConfig {
     uint24 backrunCaptureFractionE6; // LP share of backrun profit
     uint24 midFadeRateE6; // continuing-fee growth rate per unit move
     uint24 maxMidFadeE6; // cap on the continuing fade
-    uint24 skewRateE6; // baseline lean per unit of price impact
-    uint24 maxSkewStepE6; // max skew change per block
-    uint24 maxSkewE6; // skew ceiling; must be <= restingSpreadE6
+    uint24 skewRateE6; // leaning side's permanent fee step per unit of price impact
+    uint24 maxSkewStepE6; // cap on the leaning side's permanent fee step per block; <= 2 * maxSkewE6 - restingSpreadE6
+    uint24 maxSkewE6; // cap on either side's permanent fee; restingSpreadE6 / 2 <= maxSkewE6 <= restingSpreadE6
     uint24 backrunThresholdE6; // min price impact that arms the backrun charge
     uint24 restoreFractionE6; // fraction of the baseline in the next block's baseline calculation
     uint24 restoreThresholdE6; // min price impact that arms the baseline restore
@@ -51,13 +51,13 @@ interface IVolatileFeeConfiguration {
     /// @param backrunCaptureFractionE6 The submitted capture fraction
     error BackrunCaptureFractionTooLarge(uint24 backrunCaptureFractionE6);
 
-    /// @notice Thrown when restingSpreadE6 exceeds 2 * MAX_HOOK_FEE_E6, the sum of both sides' fee ceilings
+    /// @notice Thrown when restingSpreadE6 exceeds 2 * MAX_FEE_E6, the sum of both sides' fee ceilings
     /// @param restingSpreadE6 The submitted resting spread
     error RestingSpreadTooLarge(uint24 restingSpreadE6);
 
-    /// @notice Thrown when maxSkewE6 exceeds MAX_HOOK_FEE_E6; the excess is skew band the fee clamp would remove
+    /// @notice Thrown when maxSkewE6 exceeds MAX_FEE_E6; the excess is skew band the fee clamp would remove
     /// @param maxSkewE6 The submitted skew ceiling
-    error MaxSkewAboveMaxHookFee(uint24 maxSkewE6);
+    error MaxSkewAboveMaxFee(uint24 maxSkewE6);
 
     /// @notice Thrown when maxSkewStepE6 exceeds 2 * maxSkewE6 - restingSpreadE6, the width of the permanent-fee band
     /// @param maxSkewStepE6 The submitted per-block skew step cap
@@ -65,7 +65,7 @@ interface IVolatileFeeConfiguration {
     /// @param restingSpreadE6 The submitted resting spread
     error MaxSkewStepTooLarge(uint24 maxSkewStepE6, uint24 maxSkewE6, uint24 restingSpreadE6);
 
-    /// @notice Thrown when maxMidFadeE6 exceeds the maximum hook fee; baseline + fade must fit a uint24
+    /// @notice Thrown when maxMidFadeE6 exceeds MAX_FEE_E6; baseline + fade must fit a uint24
     /// @param maxMidFadeE6 The submitted continuing-fade cap
     error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
 

@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -29,14 +29,17 @@ enlarge the move, by at most 2**-47 relative. Both round in favour of LPs.
 uint256 internal constant ONE_E6 = 1e6;
 ```
 
-### MAX_HOOK_FEE_E6
+### MAX_FEE_E6
 
-Maximum LP fee the hook can charge. Pool.swap combines the LP fee with the protocol fee.
-Hook fee of 999_999 compounds to 1e6 for any nonzero protocol fee, whereas 999_998 hits
-999_999 for any non-zero protocol fee.
+Maximum LP fee clampToMaxFeeE6 returns. Pool.swap compounds the LP fee with the directional
+protocol fee (protocol taken from the input first, LP fee on the remainder) and
+rounds the result UP to a whole pip, so an LP fee of 999_999 compounds to exactly
+1e6 (100%) for ANY nonzero protocol fee; 999_998 compounds to at most 999_999 for
+all protocol fees up to ProtocolFeeLibrary.MAX_PROTOCOL_FEE
+(= LPFeeLibrary.MAX_LP_FEE - 2).
 
 ```solidity
-uint256 internal constant MAX_HOOK_FEE_E6 = 1e6 - 2;
+uint256 internal constant MAX_FEE_E6 = 1e6 - 2;
 ```
 
 ### Q48
@@ -130,7 +133,7 @@ function displacementBackrunFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
+| feeE6 | `uint24` | Fee, clamped to MAX_FEE_E6 |
 
 <a id="displacementcontinuingfee-uint24-relativemove-uint24-uint24"></a>
 
@@ -160,7 +163,7 @@ function displacementContinuingFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| feeE6 | `uint24` | Fee, clamped to MAX_HOOK_FEE_E6 |
+| feeE6 | `uint24` | Fee, clamped to MAX_FEE_E6 |
 
 <a id="temporarybackrunfee-uint24-uint24-relativemove-uint24-uint24-uint24-uint24"></a>
 
@@ -170,8 +173,8 @@ Temporary (one-block) fee on the backrun side at the top of a block.
 
 ```solidity
 function temporaryBackrunFee(
-        uint24 newPermFeeE6,
-        uint24 oldPermFeeE6,
+        uint24 newLeanPermFeeE6,
+        uint24 oldLeanPermFeeE6,
         RelativeMove blockPriceImpact,
         uint24 backrunCaptureFractionE6,
         uint24 backrunThresholdE6,
@@ -184,8 +187,8 @@ function temporaryBackrunFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| newPermFeeE6 | `uint24` | Updated permanent skew (this block) |
-| oldPermFeeE6 | `uint24` | Previous permanent skew (last block) |
+| newLeanPermFeeE6 | `uint24` | Leaning side's updated permanent fee (this block) |
+| oldLeanPermFeeE6 | `uint24` | Leaning side's previous permanent fee (last block) |
 | blockPriceImpact | `RelativeMove` | Price impact since the previous block open |
 | backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
 | backrunThresholdE6 | `uint24` | Price impact level that arms the backrun charge |
@@ -231,7 +234,7 @@ function newPermAndTempFee(VolatileFeeConfig memory config, uint24 oldAskPermFee
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAskPermFeeE6 | `uint24` | New permanent ask-side fee to store |
-| tempFeeE6 | `uint24` | Temporary fee for the block, clamped to MAX_HOOK_FEE_E6 |
+| tempFeeE6 | `uint24` | Temporary fee for the block, clamped to MAX_FEE_E6 |
 | tempOnBid | `bool` | True if the temp fee is on the bid side, false if on the ask side |
 
 <a id="baselinefee-volatilefeestate-uint24-bool"></a>
@@ -243,7 +246,7 @@ One side's top-of-block baseline from the stored skew and temp fee.
 <i>
 
 The leaning side's baseline is its permanent fee; the backrun side's adds the temp fee. Both
-permanent fees are &lt;= maxSkewE6 &lt;= MAX_HOOK_FEE_E6 by the config bounds, so only the temp
+permanent fees are &lt;= maxSkewE6 &lt;= MAX_FEE_E6 by the config bounds, so only the temp
 side can exceed the ceiling and needs the clamp.
 
 </i>
@@ -267,16 +270,16 @@ function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| baselineFeeE6 | `uint24` | Baseline for that side, clamped to MAX_HOOK_FEE_E6 |
+| baselineFeeE6 | `uint24` | Baseline for that side, clamped to MAX_FEE_E6 |
 
-<a id="clamptomaxhookfeee6-uint256"></a>
+<a id="clamptomaxfeee6-uint256"></a>
 
-### clampToMaxHookFeeE6
+### clampToMaxFeeE6
 
-Clamps a fee to MAX_HOOK_FEE_E6.
+Clamps a fee to MAX_FEE_E6.
 
 ```solidity
-function clampToMaxHookFeeE6(uint256 feeE6) internal pure returns (uint24);
+function clampToMaxFeeE6(uint256 feeE6) internal pure returns (uint24);
 ```
 
 **Parameters**
@@ -289,5 +292,5 @@ function clampToMaxHookFeeE6(uint256 feeE6) internal pure returns (uint24);
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| &lt;none&gt; | `uint24` | Fee clamped to MAX_HOOK_FEE_E6 |
+| &lt;none&gt; | `uint24` | Fee clamped to MAX_FEE_E6 |
 

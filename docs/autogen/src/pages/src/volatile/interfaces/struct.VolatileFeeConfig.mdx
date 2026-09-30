@@ -5,7 +5,7 @@ description: "Static per-pool config for the volatile fee algorithm, set by the 
 
 # VolatileFeeConfig
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
 
 Static per-pool config for the volatile fee algorithm, set by the config manager.
 
@@ -21,9 +21,9 @@ struct VolatileFeeConfig {
     uint24 backrunCaptureFractionE6; // LP share of backrun profit
     uint24 midFadeRateE6; // continuing-fee growth rate per unit move
     uint24 maxMidFadeE6; // cap on the continuing fade
-    uint24 skewRateE6; // baseline lean per unit of price impact
-    uint24 maxSkewStepE6; // max skew change per block
-    uint24 maxSkewE6; // skew ceiling; must be <= restingSpreadE6
+    uint24 skewRateE6; // leaning side's permanent fee step per unit of price impact
+    uint24 maxSkewStepE6; // cap on the leaning side's permanent fee step per block; <= 2 * maxSkewE6 - restingSpreadE6
+    uint24 maxSkewE6; // cap on either side's permanent fee; restingSpreadE6 / 2 <= maxSkewE6 <= restingSpreadE6
     uint24 backrunThresholdE6; // min price impact that arms the backrun charge
     uint24 restoreFractionE6; // fraction of the baseline in the next block's baseline calculation
     uint24 restoreThresholdE6; // min price impact that arms the baseline restore

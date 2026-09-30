@@ -23,7 +23,7 @@ contract VolatilePairHookInvariantsTest is VolatilePairTestBase {
     // Totality and the fee ceiling over arbitrary sequences
     // -------------------------------------------------------------------------
 
-    /// Up-moves are unbounded here; a charge above MAX_HOOK_FEE_E6 compounds with a protocol fee to a dead 100%
+    /// Up-moves are unbounded here; a charge above MAX_FEE_E6 compounds with a protocol fee to a dead 100%
     /// (extremeMove.t.sol).
     function test_fuzz_anySequence_neverRevertsAndStaysWithinCeiling(
         ConfigSeed memory configSeed,
@@ -39,8 +39,8 @@ contract VolatilePairHookInvariantsTest is VolatilePairTestBase {
             _advanceBlocks(steps[i].blockGap & 1);
 
             (uint24 quotedBidE6, uint24 quotedAskE6) = hook.getFee(testPoolKey);
-            assertLe(quotedBidE6, MAX_HOOK_FEE_E6, "bid ceiling");
-            assertLe(quotedAskE6, MAX_HOOK_FEE_E6, "ask ceiling");
+            assertLe(quotedBidE6, MAX_FEE_E6, "bid ceiling");
+            assertLe(quotedAskE6, MAX_FEE_E6, "ask ceiling");
 
             (,, uint24 fee) = hook.beforeSwap(
                 address(this), testPoolKey, SwapParams(steps[i].zeroForOne, -1e18, 0), Constants.ZERO_BYTES

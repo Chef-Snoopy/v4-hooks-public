@@ -237,10 +237,10 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     // Validator: ceilings on restingSpreadE6, maxSkewE6, maxSkewStepE6 and maxMidFadeE6
     // -------------------------------------------------------------------------
 
-    function test_updateFeeConfig_acceptsRestingSpreadAtTwiceMaxHookFee() public {
+    function test_updateFeeConfig_acceptsRestingSpreadAtTwiceMaxFee() public {
         VolatileFeeConfig memory params = _defaultConfig();
         params.restingSpreadE6 = MAX_RESTING_SPREAD_E6;
-        params.maxSkewE6 = MAX_HOOK_FEE_E6;
+        params.maxSkewE6 = MAX_FEE_E6;
         params.maxSkewStepE6 = 0; // default step of 300 causes MaxSkewStepTooLarge revert
 
         vm.prank(configManager);
@@ -261,16 +261,14 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
-    /// Reachable only with rs > MAX_HOOK_FEE_E6; below that MaxSkewTooLarge fires first.
-    function test_updateFeeConfig_revertsWithMaxSkewAboveMaxHookFee() public {
+    /// Reachable only with rs > MAX_FEE_E6; below that MaxSkewTooLarge fires first.
+    function test_updateFeeConfig_revertsWithMaxSkewAboveMaxFee() public {
         VolatileFeeConfig memory params = _defaultConfig();
-        params.restingSpreadE6 = MAX_HOOK_FEE_E6 + 1;
-        params.maxSkewE6 = MAX_HOOK_FEE_E6 + 1;
+        params.restingSpreadE6 = MAX_FEE_E6 + 1;
+        params.maxSkewE6 = MAX_FEE_E6 + 1;
 
         vm.prank(configManager);
-        vm.expectRevert(
-            abi.encodeWithSelector(IVolatileFeeConfiguration.MaxSkewAboveMaxHookFee.selector, MAX_HOOK_FEE_E6 + 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.MaxSkewAboveMaxFee.selector, MAX_FEE_E6 + 1));
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
@@ -324,9 +322,9 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         feeConfigurationImplementation.updateFeeConfig(testPoolId, oddBandOverStep);
     }
 
-    function test_updateFeeConfig_acceptsMaxMidFadeAtMaxHookFee() public {
+    function test_updateFeeConfig_acceptsMaxMidFadeAtMaxFee() public {
         VolatileFeeConfig memory params = _defaultConfig();
-        params.maxMidFadeE6 = MAX_HOOK_FEE_E6;
+        params.maxMidFadeE6 = MAX_FEE_E6;
 
         vm.prank(configManager);
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
@@ -335,16 +333,14 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
     function test_updateFeeConfig_revertsWithMaxMidFadeTooLarge() public {
         VolatileFeeConfig memory params = _defaultConfig();
-        params.maxMidFadeE6 = MAX_HOOK_FEE_E6 + 1;
+        params.maxMidFadeE6 = MAX_FEE_E6 + 1;
 
         vm.prank(configManager);
-        vm.expectRevert(
-            abi.encodeWithSelector(IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector, MAX_HOOK_FEE_E6 + 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector, MAX_FEE_E6 + 1));
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
-    function test_fuzz_updateFeeConfig_rejectsRestingSpreadAboveTwiceMaxHookFee(ConfigSeed memory seed, uint24 rsSeed)
+    function test_fuzz_updateFeeConfig_rejectsRestingSpreadAboveTwiceMaxFee(ConfigSeed memory seed, uint24 rsSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
@@ -359,20 +355,18 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function test_fuzz_updateFeeConfig_rejectsMaxSkewAboveMaxHookFee(
+    function test_fuzz_updateFeeConfig_rejectsMaxSkewAboveMaxFee(
         ConfigSeed memory seed,
         uint24 rsSeed,
         uint24 maxSkewSeed
     ) public {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
-        params.restingSpreadE6 = uint24(bound(rsSeed, uint256(MAX_HOOK_FEE_E6) + 1, MAX_RESTING_SPREAD_E6));
+        params.restingSpreadE6 = uint24(bound(rsSeed, uint256(MAX_FEE_E6) + 1, MAX_RESTING_SPREAD_E6));
         // maxSkew <= rs and 2 * maxSkew > rs hold, so this is the first check to fire
-        params.maxSkewE6 = uint24(bound(maxSkewSeed, uint256(MAX_HOOK_FEE_E6) + 1, params.restingSpreadE6));
+        params.maxSkewE6 = uint24(bound(maxSkewSeed, uint256(MAX_FEE_E6) + 1, params.restingSpreadE6));
 
         vm.prank(configManager);
-        vm.expectRevert(
-            abi.encodeWithSelector(IVolatileFeeConfiguration.MaxSkewAboveMaxHookFee.selector, params.maxSkewE6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.MaxSkewAboveMaxFee.selector, params.maxSkewE6));
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
         _assertConfigEq(testPoolId, _seedParams());
@@ -397,11 +391,11 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         _assertConfigEq(testPoolId, _seedParams());
     }
 
-    function test_fuzz_updateFeeConfig_rejectsMaxMidFadeAboveMaxHookFee(ConfigSeed memory seed, uint24 maxMidFadeSeed)
+    function test_fuzz_updateFeeConfig_rejectsMaxMidFadeAboveMaxFee(ConfigSeed memory seed, uint24 maxMidFadeSeed)
         public
     {
         VolatileFeeConfig memory params = _boundFeeConfig(seed);
-        params.maxMidFadeE6 = uint24(bound(maxMidFadeSeed, uint256(MAX_HOOK_FEE_E6) + 1, type(uint24).max));
+        params.maxMidFadeE6 = uint24(bound(maxMidFadeSeed, uint256(MAX_FEE_E6) + 1, type(uint24).max));
 
         vm.prank(configManager);
         vm.expectRevert(
@@ -434,10 +428,10 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
     {
         raw.restingSpreadE6 = uint24(bound(raw.restingSpreadE6, 0, uint256(MAX_RESTING_SPREAD_E6) + 1));
         raw.backrunCaptureFractionE6 = uint24(bound(raw.backrunCaptureFractionE6, 0, uint256(ONE_E6) + 1));
-        raw.maxSkewE6 = uint24(bound(raw.maxSkewE6, 0, uint256(MAX_HOOK_FEE_E6) + 1));
-        // the widest band is MAX_HOOK_FEE_E6, at rs = maxSkew = MAX_HOOK_FEE_E6
-        raw.maxSkewStepE6 = uint24(bound(raw.maxSkewStepE6, 0, uint256(MAX_HOOK_FEE_E6) + 1));
-        raw.maxMidFadeE6 = uint24(bound(raw.maxMidFadeE6, 0, uint256(MAX_HOOK_FEE_E6) + 1));
+        raw.maxSkewE6 = uint24(bound(raw.maxSkewE6, 0, uint256(MAX_FEE_E6) + 1));
+        // the widest band is MAX_FEE_E6, at rs = maxSkew = MAX_FEE_E6
+        raw.maxSkewStepE6 = uint24(bound(raw.maxSkewStepE6, 0, uint256(MAX_FEE_E6) + 1));
+        raw.maxMidFadeE6 = uint24(bound(raw.maxMidFadeE6, 0, uint256(MAX_FEE_E6) + 1));
         raw.restoreFractionE6 = uint24(bound(raw.restoreFractionE6, 0, uint256(ONE_E6) + 1));
 
         vm.prank(configManager);
@@ -460,9 +454,9 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
             assertLe(storedCaptureE6, ONE_E6);
             assertLe(storedMaxSkewE6, storedRestingSpreadE6);
             assertGe(2 * uint256(storedMaxSkewE6), storedRestingSpreadE6);
-            assertLe(storedMaxSkewE6, MAX_HOOK_FEE_E6);
+            assertLe(storedMaxSkewE6, MAX_FEE_E6);
             assertLe(storedMaxSkewStepE6, 2 * uint256(storedMaxSkewE6) - storedRestingSpreadE6);
-            assertLe(storedMaxMidFadeE6, MAX_HOOK_FEE_E6);
+            assertLe(storedMaxMidFadeE6, MAX_FEE_E6);
             assertLe(storedRestoreFractionE6, ONE_E6);
         } else {
             bytes4 selector = bytes4(returndata);
@@ -472,7 +466,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
                     || selector == IVolatileFeeConfiguration.BackrunCaptureFractionTooLarge.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewTooLarge.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewTooSmall.selector
-                    || selector == IVolatileFeeConfiguration.MaxSkewAboveMaxHookFee.selector
+                    || selector == IVolatileFeeConfiguration.MaxSkewAboveMaxFee.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewStepTooLarge.selector
                     || selector == IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector
                     || selector == IVolatileFeeConfiguration.InvalidRestoreFraction.selector,

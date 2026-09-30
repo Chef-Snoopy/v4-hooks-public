@@ -21,7 +21,9 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 /// @notice Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm); UUPS proxy is the
 ///         registered v4 hook. The fee math lives in VolatileFeeCalculation; this contract loads
 ///         state, calls it, and stores.
-/// @dev Ask = a buy = zeroForOne false; bid = a sell = zeroForOne true.
+/// @dev A swapper buying token0 (zeroForOne false, price goes up) pays the ask fee; a swapper selling
+///      token0 (zeroForOne true, price goes down) pays the bid fee. All fees are LP fees and do not take
+///      the pool's protocolFee into account; when it is turned on, v4 adds it on top of the returned fee.
 /// @custom:security-contact security@uniswap.org
 contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVolatilePairHook {
     using LPFeeLibrary for uint24;
@@ -116,8 +118,8 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         if (currentBlock <= poolState.blockNumber) return (poolState, config, currentSqrtPriceX96, false);
         isNewBlock = true;
 
-        // Otherwise, update the cached pool state
-        // Update fee states only when there's a previous price to compare against
+        // Update fee state on a new block. The temp fee set here applies until the first swap of a later block.
+        // Updates only when there's a previous price to compare against
         if (poolState.sqrtPriceTopX96 != 0) {
             RelativeMove blockPriceImpact =
                 VolatileFeeCalculation.relativeMove(currentSqrtPriceX96, poolState.sqrtPriceTopX96);
@@ -134,16 +136,17 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
     /// @param _config Pool's fee config
     /// @param _currentSqrtPriceX96 Pool's current sqrt price
     /// @param _zeroForOne Swap direction
-    /// @return Fee for this direction, clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6
+    /// @return Fee for this direction, clamped to VolatileFeeCalculation.MAX_FEE_E6
     function _getFee(
         VolatileFeeState memory _poolState,
         VolatileFeeConfig memory _config,
         uint160 _currentSqrtPriceX96,
         bool _zeroForOne
     ) private pure returns (uint24) {
-        RelativeMove displacementFromTop = VolatileFeeCalculation.relativeMove(
-            _currentSqrtPriceX96, _poolState.sqrtPriceTopX96
-        );
+        // On the first swap of a block sqrtPriceTopX96 equals _currentSqrtPriceX96, so the displacement is
+        // 0 and both branches in this function return the baseline.
+        RelativeMove displacementFromTop =
+            VolatileFeeCalculation.relativeMove(_currentSqrtPriceX96, _poolState.sqrtPriceTopX96);
         // A sell (zeroForOne) pays the bid baseline, a buy pays the ask baseline.
         uint24 baselineFeeE6 = VolatileFeeCalculation.baselineFee(_poolState, _config.restingSpreadE6, _zeroForOne);
 

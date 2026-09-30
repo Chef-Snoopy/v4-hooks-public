@@ -103,7 +103,7 @@ abstract contract VolatilePairTestBase is VolatileFuzzTestBase {
         return _defaultConfig();
     }
 
-    /// Valid for RS in [MAX_SKEW_STEP_E6, MAX_HOOK_FEE_E6]: with maxSkew = RS the step band 2 * maxSkew - RS is RS,
+    /// Valid for RS in [MAX_SKEW_STEP_E6, MAX_FEE_E6]: with maxSkew = RS the step band 2 * maxSkew - RS is RS,
     /// which must still hold the default step.
     function _configWithRestingSpread(uint24 restingSpreadE6) internal pure returns (VolatileFeeConfig memory c) {
         c = _defaultConfig();

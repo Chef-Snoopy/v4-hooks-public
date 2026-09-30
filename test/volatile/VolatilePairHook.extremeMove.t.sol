@@ -20,7 +20,7 @@ import {Vm} from "forge-std/Vm.sol";
 // Imported only so forge builds the artifact `deployCodeTo` loads by name.
 import {ERC1967Proxy as _ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-/// Real-PoolManager swaps at price ratios above 2**24 pips, where the fee sits on its MAX_HOOK_FEE_E6 clamp.
+/// Real-PoolManager swaps at price ratios above 2**24 pips, where the fee sits on its MAX_FEE_E6 clamp.
 contract VolatilePairHookExtremeMoveTest is VolatilePairTestBase, Deployers {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
@@ -75,18 +75,18 @@ contract VolatilePairHookExtremeMoveTest is VolatilePairTestBase, Deployers {
 
     /// swap.t.sol proves quote/charge parity only at the neutral fee. At a 1e6 fee no input would reach the curve and
     /// the pool could never be moved back.
-    function test_swap_extremePump_chargesMaxHookFeeOnTheBackrun() public {
+    function test_swap_extremePump_chargesMaxFeeOnTheBackrun() public {
         _pump(SQRT_PRICE_UP_16_778_216_E6);
         (uint160 priceAfter,,,) = manager.getSlot0(testPoolKey.toId());
         assertEq(priceAfter, SQRT_PRICE_UP_16_778_216_E6, "the limit binds");
 
         (uint24 feeZeroForOneE6, uint24 feeOneForZeroE6) = hook.getFee(testPoolKey);
-        assertEq(feeZeroForOneE6, MAX_HOOK_FEE_E6, "backrun quote clamps");
+        assertEq(feeZeroForOneE6, MAX_FEE_E6, "backrun quote clamps");
         assertEq(feeOneForZeroE6, NEUTRAL_FEE_E6 + MAX_MID_FADE_E6, "continuing quote caps at maxMidFade");
 
         vm.recordLogs();
         BalanceDelta backrunDelta = _swapToLimit(true, BACKRUN_EXACT_INPUT_AMOUNT, MIN_PRICE_LIMIT);
-        assertEq(_swapFeeFromLogs(), MAX_HOOK_FEE_E6, "v4 charges the quoted ceiling");
+        assertEq(_swapFeeFromLogs(), MAX_FEE_E6, "v4 charges the quoted ceiling");
         assertGt(backrunDelta.amount1(), 0, "2 pips of the input survive the fee and buy output");
     }
 
@@ -94,12 +94,12 @@ contract VolatilePairHookExtremeMoveTest is VolatilePairTestBase, Deployers {
     // Protocol fee
     // -------------------------------------------------------------------------
 
-    /// Why MAX_HOOK_FEE_E6 is 1e6 - 2: v4 compounds fees as p + f - floor(p * f / 1e6) (Pool.sol:307) and reverts
+    /// Why MAX_FEE_E6 is 1e6 - 2: v4 compounds fees as p + f - floor(p * f / 1e6) (Pool.sol:307) and reverts
     /// exact-output swaps once that reaches 1e6 (Pool.sol:311-314). 999_999 compounds to 1e6 under any nonzero p;
     /// 999_998 compounds to 999_999 under the max.
-    function test_swap_withMaxProtocolFee_exactOutputAtMaxHookFeeStillExecutes() public {
+    function test_swap_withMaxProtocolFee_exactOutputAtMaxFeeStillExecutes() public {
         assertEq(
-            ProtocolFeeLibrary.calculateSwapFee(uint16(ProtocolFeeLibrary.MAX_PROTOCOL_FEE), MAX_HOOK_FEE_E6 + 1),
+            ProtocolFeeLibrary.calculateSwapFee(uint16(ProtocolFeeLibrary.MAX_PROTOCOL_FEE), MAX_FEE_E6 + 1),
             LPFeeLibrary.MAX_LP_FEE
         );
 
@@ -113,8 +113,8 @@ contract VolatilePairHookExtremeMoveTest is VolatilePairTestBase, Deployers {
         BalanceDelta backrunDelta = _swapToLimit(true, BACKRUN_EXACT_OUTPUT_AMOUNT, MIN_PRICE_LIMIT);
         assertEq(
             _swapFeeFromLogs(),
-            ProtocolFeeLibrary.calculateSwapFee(uint16(ProtocolFeeLibrary.MAX_PROTOCOL_FEE), MAX_HOOK_FEE_E6),
-            "protocol fee compounds on the clamped hook fee"
+            ProtocolFeeLibrary.calculateSwapFee(uint16(ProtocolFeeLibrary.MAX_PROTOCOL_FEE), MAX_FEE_E6),
+            "protocol fee compounds on the clamped LP fee"
         );
         assertEq(int256(backrunDelta.amount1()), BACKRUN_EXACT_OUTPUT_AMOUNT, "exact output fills in full");
     }

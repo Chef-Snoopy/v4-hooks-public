@@ -5,7 +5,7 @@ description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm);
 
 # VolatilePairHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/fe085a56078e89250f2b48a1516bf870883ccc6b/src/volatile/VolatilePairHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/VolatilePairHook.sol)
 
 **Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatilePairHook](/src/volatile/interfaces/interface.IVolatilePairHook)
 
@@ -17,7 +17,9 @@ state, calls it, and stores.
 
 <i>
 
-Ask = a buy = zeroForOne false; bid = a sell = zeroForOne true.
+A swapper buying token0 (zeroForOne false, price goes up) pays the ask fee; a swapper selling
+token0 (zeroForOne true, price goes down) pays the bid fee. All fees are LP fees and do not take
+the pool's protocolFee into account; when it is turned on, v4 adds it on top of the returned fee.
 
 </i>
 
@@ -204,5 +206,5 @@ function _getFee(
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| &lt;none&gt; | `uint24` | Fee for this direction, clamped to VolatileFeeCalculation.MAX_HOOK_FEE_E6 |
+| &lt;none&gt; | `uint24` | Fee for this direction, clamped to VolatileFeeCalculation.MAX_FEE_E6 |
 

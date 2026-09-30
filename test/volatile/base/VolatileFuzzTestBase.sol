@@ -9,9 +9,9 @@ import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfa
 
 /// All `*E6` values are pips; 1e6 = 100%.
 abstract contract VolatileFuzzTestBase is Test {
-    uint24 internal constant MAX_HOOK_FEE_E6 = uint24(VolatileFeeCalculation.MAX_HOOK_FEE_E6); // 999_998
+    uint24 internal constant MAX_FEE_E6 = uint24(VolatileFeeCalculation.MAX_FEE_E6); // 999_998
 
-    uint24 internal constant MAX_RESTING_SPREAD_E6 = 2 * MAX_HOOK_FEE_E6; // 1_999_996
+    uint24 internal constant MAX_RESTING_SPREAD_E6 = 2 * MAX_FEE_E6; // 1_999_996
     uint24 internal constant RESTORE_FRACTION_E6 = uint24(VolatileFeeCalculation.ONE_E6);
     uint24 internal constant RESTORE_THRESHOLD_E6 = 0;
 
@@ -36,13 +36,13 @@ abstract contract VolatileFuzzTestBase is Test {
         uint24 restingSpreadE6 = uint24(bound(uint256(s.restingSpreadSeed), 1, MAX_RESTING_SPREAD_E6));
         // ceil(RS / 2): the bid's reset perm fee RS - RS / 2 must not exceed the ceiling
         uint256 maxSkewLoE6 = (uint256(restingSpreadE6) + 1) / 2;
-        uint256 maxSkewHiE6 = FixedPointMathLib.min(restingSpreadE6, MAX_HOOK_FEE_E6);
+        uint256 maxSkewHiE6 = FixedPointMathLib.min(restingSpreadE6, MAX_FEE_E6);
         uint24 maxSkewE6 = uint24(bound(uint256(s.maxSkewSeed), maxSkewLoE6, maxSkewHiE6));
         config = VolatileFeeConfig({
             restingSpreadE6: restingSpreadE6,
             backrunCaptureFractionE6: uint24(bound(uint256(s.backrunCaptureSeed), 0, VolatileFeeCalculation.ONE_E6)),
             midFadeRateE6: s.midFadeRateSeed,
-            maxMidFadeE6: uint24(bound(uint256(s.maxMidFadeSeed), 0, MAX_HOOK_FEE_E6)),
+            maxMidFadeE6: uint24(bound(uint256(s.maxMidFadeSeed), 0, MAX_FEE_E6)),
             skewRateE6: s.skewRateSeed,
             // 2 * maxSkew - RS is the width of the perm-fee band [RS - maxSkew, maxSkew]
             maxSkewStepE6: uint24(bound(uint256(s.maxSkewStepSeed), 0, 2 * uint256(maxSkewE6) - restingSpreadE6)),
