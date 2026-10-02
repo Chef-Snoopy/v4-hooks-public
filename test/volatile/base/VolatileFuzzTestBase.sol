@@ -49,9 +49,9 @@ abstract contract VolatileFuzzTestBase is Test {
             // 2 * maxSkew - RS is the width of the perm-fee band [RS - maxSkew, maxSkew]
             maxSkewStepE6: uint24(bound(uint256(s.maxSkewStepSeed), 0, 2 * uint256(maxSkewE6) - restingSpreadE6)),
             maxSkewE6: maxSkewE6,
-            backrunThresholdE6: s.backrunThresholdSeed,
+            backrunThresholdE6: uint24(bound(uint256(s.backrunThresholdSeed), 0, VolatileFeeCalculation.ONE_E6 - 1)),
             restoreFractionE6: uint24(bound(uint256(s.restoreFractionSeed), 0, VolatileFeeCalculation.ONE_E6)),
-            restoreThresholdE6: s.restoreThresholdSeed
+            restoreThresholdE6: uint24(bound(uint256(s.restoreThresholdSeed), 0, VolatileFeeCalculation.ONE_E6 - 1))
         });
     }
 

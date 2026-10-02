@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
-import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {RelativeMove, RelativeMoveLibrary} from "./RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../interfaces/IVolatileFeeConfiguration.sol";
+import {FixedPoint96} from "@uniswap/v4-core/src/libraries/FixedPoint96.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 /// @title VolatileFeeCalculation
 /// @notice Pure math for the volatile dynamic-fee algorithm. All `*E6` values are E6 pips; 1e6 = 100%.

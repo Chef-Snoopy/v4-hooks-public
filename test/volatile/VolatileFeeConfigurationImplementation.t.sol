@@ -117,9 +117,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         params.backrunCaptureFractionE6 = ONE_E6 + 1;
 
         vm.prank(configManager);
-        vm.expectRevert(
-            abi.encodeWithSelector(IVolatileFeeConfiguration.BackrunCaptureFractionTooLarge.selector, ONE_E6 + 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.FractionTooLarge.selector, ONE_E6 + 1));
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
     }
 
@@ -139,8 +137,48 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         params.restoreFractionE6 = ONE_E6 + 1;
 
         vm.prank(configManager);
-        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.InvalidRestoreFraction.selector, ONE_E6 + 1));
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.FractionTooLarge.selector, ONE_E6 + 1));
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+    }
+
+    function test_updateFeeConfig_revertsWithBackrunThresholdAtOne() public {
+        VolatileFeeConfig memory params = _defaultConfig();
+        params.backrunThresholdE6 = ONE_E6;
+
+        vm.prank(configManager);
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.ThresholdTooLarge.selector, ONE_E6));
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+    }
+
+    function test_updateFeeConfig_acceptsBackrunThresholdBelowOne() public {
+        VolatileFeeConfig memory params = _defaultConfig();
+        params.backrunThresholdE6 = ONE_E6 - 1;
+
+        vm.prank(configManager);
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+
+        (,,,,,,, uint24 backrunThresholdE6,,) = feeConfigurationImplementation.feeConfig(testPoolId);
+        assertEq(backrunThresholdE6, ONE_E6 - 1);
+    }
+
+    function test_updateFeeConfig_revertsWithRestoreThresholdAtOne() public {
+        VolatileFeeConfig memory params = _defaultConfig();
+        params.restoreThresholdE6 = ONE_E6;
+
+        vm.prank(configManager);
+        vm.expectRevert(abi.encodeWithSelector(IVolatileFeeConfiguration.ThresholdTooLarge.selector, ONE_E6));
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+    }
+
+    function test_updateFeeConfig_acceptsRestoreThresholdBelowOne() public {
+        VolatileFeeConfig memory params = _defaultConfig();
+        params.restoreThresholdE6 = ONE_E6 - 1;
+
+        vm.prank(configManager);
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+
+        (,,,,,,,,, uint24 restoreThresholdE6) = feeConfigurationImplementation.feeConfig(testPoolId);
+        assertEq(restoreThresholdE6, ONE_E6 - 1);
     }
 
     /// Pins `_boundFeeConfig`, which every volatile suite draws valid configs from, to the validator.
@@ -207,9 +245,7 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
         vm.prank(configManager);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IVolatileFeeConfiguration.BackrunCaptureFractionTooLarge.selector, params.backrunCaptureFractionE6
-            )
+            abi.encodeWithSelector(IVolatileFeeConfiguration.FractionTooLarge.selector, params.backrunCaptureFractionE6)
         );
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
@@ -414,7 +450,37 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
 
         vm.prank(configManager);
         vm.expectRevert(
-            abi.encodeWithSelector(IVolatileFeeConfiguration.InvalidRestoreFraction.selector, params.restoreFractionE6)
+            abi.encodeWithSelector(IVolatileFeeConfiguration.FractionTooLarge.selector, params.restoreFractionE6)
+        );
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+
+        _assertConfigEq(testPoolId, _seedParams());
+    }
+
+    function test_fuzz_updateFeeConfig_rejectsBackrunThresholdAtOrAboveOne(ConfigSeed memory seed, uint24 thresholdSeed)
+        public
+    {
+        VolatileFeeConfig memory params = _boundFeeConfig(seed);
+        params.backrunThresholdE6 = uint24(bound(thresholdSeed, uint256(ONE_E6), type(uint24).max));
+
+        vm.prank(configManager);
+        vm.expectRevert(
+            abi.encodeWithSelector(IVolatileFeeConfiguration.ThresholdTooLarge.selector, params.backrunThresholdE6)
+        );
+        feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
+
+        _assertConfigEq(testPoolId, _seedParams());
+    }
+
+    function test_fuzz_updateFeeConfig_rejectsRestoreThresholdAtOrAboveOne(ConfigSeed memory seed, uint24 thresholdSeed)
+        public
+    {
+        VolatileFeeConfig memory params = _boundFeeConfig(seed);
+        params.restoreThresholdE6 = uint24(bound(thresholdSeed, uint256(ONE_E6), type(uint24).max));
+
+        vm.prank(configManager);
+        vm.expectRevert(
+            abi.encodeWithSelector(IVolatileFeeConfiguration.ThresholdTooLarge.selector, params.restoreThresholdE6)
         );
         feeConfigurationImplementation.updateFeeConfig(testPoolId, params);
 
@@ -433,6 +499,8 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
         raw.maxSkewStepE6 = uint24(bound(raw.maxSkewStepE6, 0, uint256(MAX_FEE_E6) + 1));
         raw.maxMidFadeE6 = uint24(bound(raw.maxMidFadeE6, 0, uint256(MAX_FEE_E6) + 1));
         raw.restoreFractionE6 = uint24(bound(raw.restoreFractionE6, 0, uint256(ONE_E6) + 1));
+        raw.backrunThresholdE6 = uint24(bound(raw.backrunThresholdE6, 0, uint256(ONE_E6)));
+        raw.restoreThresholdE6 = uint24(bound(raw.restoreThresholdE6, 0, uint256(ONE_E6)));
 
         vm.prank(configManager);
         (bool success, bytes memory returndata) = address(feeConfigurationImplementation)
@@ -446,8 +514,10 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
                 uint24 storedCaptureE6,,
                 uint24 storedMaxMidFadeE6,,
                 uint24 storedMaxSkewStepE6,
-                uint24 storedMaxSkewE6,,
+                uint24 storedMaxSkewE6,
+                uint24 storedBackrunThresholdE6,
                 uint24 storedRestoreFractionE6,
+                uint24 storedRestoreThresholdE6
             ) = feeConfigurationImplementation.feeConfig(testPoolId);
             assertTrue(storedRestingSpreadE6 != 0);
             assertLe(storedRestingSpreadE6, MAX_RESTING_SPREAD_E6);
@@ -458,18 +528,20 @@ contract VolatileFeeConfigurationImplementationTest is VolatilePairTestBase {
             assertLe(storedMaxSkewStepE6, 2 * uint256(storedMaxSkewE6) - storedRestingSpreadE6);
             assertLe(storedMaxMidFadeE6, MAX_FEE_E6);
             assertLe(storedRestoreFractionE6, ONE_E6);
+            assertLt(storedBackrunThresholdE6, ONE_E6);
+            assertLt(storedRestoreThresholdE6, ONE_E6);
         } else {
             bytes4 selector = bytes4(returndata);
             assertTrue(
                 selector == IVolatileFeeConfiguration.RestingSpreadCannotBeZero.selector
                     || selector == IVolatileFeeConfiguration.RestingSpreadTooLarge.selector
-                    || selector == IVolatileFeeConfiguration.BackrunCaptureFractionTooLarge.selector
+                    || selector == IVolatileFeeConfiguration.FractionTooLarge.selector
+                    || selector == IVolatileFeeConfiguration.ThresholdTooLarge.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewTooLarge.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewTooSmall.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewAboveMaxFee.selector
                     || selector == IVolatileFeeConfiguration.MaxSkewStepTooLarge.selector
-                    || selector == IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector
-                    || selector == IVolatileFeeConfiguration.InvalidRestoreFraction.selector,
+                    || selector == IVolatileFeeConfiguration.MaxMidFadeTooLarge.selector,
                 "unexpected revert selector"
             );
             _assertConfigEq(testPoolId, _seedParams());

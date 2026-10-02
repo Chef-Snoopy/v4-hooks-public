@@ -47,10 +47,6 @@ interface IVolatileFeeConfiguration {
     /// @param restingSpreadE6 The submitted resting spread
     error MaxSkewTooSmall(uint24 maxSkewE6, uint24 restingSpreadE6);
 
-    /// @notice Thrown when backrunCaptureFractionE6 exceeds 1e6 (100% of the price move)
-    /// @param backrunCaptureFractionE6 The submitted capture fraction
-    error BackrunCaptureFractionTooLarge(uint24 backrunCaptureFractionE6);
-
     /// @notice Thrown when restingSpreadE6 exceeds 2 * MAX_FEE_E6, the sum of both sides' fee ceilings
     /// @param restingSpreadE6 The submitted resting spread
     error RestingSpreadTooLarge(uint24 restingSpreadE6);
@@ -69,9 +65,13 @@ interface IVolatileFeeConfiguration {
     /// @param maxMidFadeE6 The submitted continuing-fade cap
     error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
 
-    /// @notice Thrown when restoreFractionE6 exceeds 1e6 (100%); restore cannot add back more than the permanent fee went down by
-    /// @param restoreFractionE6 The submitted restore fraction
-    error InvalidRestoreFraction(uint24 restoreFractionE6);
+    /// @notice Thrown when backrunCaptureFractionE6 or restoreFractionE6 exceeds 1e6 (100%)
+    /// @param fractionE6 The submitted fraction
+    error FractionTooLarge(uint24 fractionE6);
+
+    /// @notice Thrown when backrunThresholdE6 or restoreThresholdE6 is 1e6 (100%) or more; a down move can never reach it
+    /// @param thresholdE6 The submitted threshold
+    error ThresholdTooLarge(uint24 thresholdE6);
 
     /// @notice Thrown when poolIds and feeConfigs arrays have different lengths
     error LengthMismatch();

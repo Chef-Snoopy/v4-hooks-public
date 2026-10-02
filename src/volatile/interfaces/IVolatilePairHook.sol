@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {VolatileFeeConfig} from "./IVolatileFeeConfiguration.sol";
 import {IDynamicFeeHook} from "../../interfaces/IDynamicFeeHook.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 /// @notice Interface for VolatilePairHook
 interface IVolatilePairHook is IDynamicFeeHook {

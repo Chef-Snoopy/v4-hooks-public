@@ -5,7 +5,7 @@ description: "Interface for the volatile fee configuration (config-manager-owned
 
 # IVolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/e2544672ce13904b89359af639381bcf8bd77773/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
 
 Interface for the volatile fee configuration (config-manager-owned per-pool params).
 
@@ -102,20 +102,6 @@ error MaxSkewTooSmall(uint24 maxSkewE6, uint24 restingSpreadE6);
 | maxSkewE6 | `uint24` | The submitted skew ceiling |
 | restingSpreadE6 | `uint24` | The submitted resting spread |
 
-### BackrunCaptureFractionTooLarge
-
-Thrown when backrunCaptureFractionE6 exceeds 1e6 (100% of the price move)
-
-```solidity
-error BackrunCaptureFractionTooLarge(uint24 backrunCaptureFractionE6);
-```
-
-**Parameters**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| backrunCaptureFractionE6 | `uint24` | The submitted capture fraction |
-
 ### RestingSpreadTooLarge
 
 Thrown when restingSpreadE6 exceeds 2 * MAX_FEE_E6, the sum of both sides' fee ceilings
@@ -174,19 +160,33 @@ error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
 | ---- | ---- | ----------- |
 | maxMidFadeE6 | `uint24` | The submitted continuing-fade cap |
 
-### InvalidRestoreFraction
+### FractionTooLarge
 
-Thrown when restoreFractionE6 exceeds 1e6 (100%); restore cannot add back more than the permanent fee went down by
+Thrown when backrunCaptureFractionE6 or restoreFractionE6 exceeds 1e6 (100%)
 
 ```solidity
-error InvalidRestoreFraction(uint24 restoreFractionE6);
+error FractionTooLarge(uint24 fractionE6);
 ```
 
 **Parameters**
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| restoreFractionE6 | `uint24` | The submitted restore fraction |
+| fractionE6 | `uint24` | The submitted fraction |
+
+### ThresholdTooLarge
+
+Thrown when backrunThresholdE6 or restoreThresholdE6 is 1e6 (100%) or more; a down move can never reach it
+
+```solidity
+error ThresholdTooLarge(uint24 thresholdE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| thresholdE6 | `uint24` | The submitted threshold |
 
 ### LengthMismatch
 

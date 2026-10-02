@@ -123,11 +123,13 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
         _validateRestingSpreadE6(_feeConfig.restingSpreadE6);
-        _validateBackrunCaptureFractionE6(_feeConfig.backrunCaptureFractionE6);
+        _validateFractionE6(_feeConfig.backrunCaptureFractionE6);
         _validateMaxSkewE6(_feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
         _validateMaxSkewStepE6(_feeConfig.maxSkewStepE6, _feeConfig.maxSkewE6, _feeConfig.restingSpreadE6);
         _validateMaxMidFadeE6(_feeConfig.maxMidFadeE6);
-        _validateRestoreFractionE6(_feeConfig.restoreFractionE6);
+        _validateFractionE6(_feeConfig.restoreFractionE6);
+        _validateThresholdE6(_feeConfig.backrunThresholdE6);
+        _validateThresholdE6(_feeConfig.restoreThresholdE6);
 
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
         $.feeConfig[_poolId] = _feeConfig;
@@ -165,15 +167,6 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         }
     }
 
-    /// @notice Validates the backrun capture fraction
-    /// @param _backrunCaptureFractionE6 The capture fraction to validate
-    function _validateBackrunCaptureFractionE6(uint24 _backrunCaptureFractionE6) internal pure {
-        // The pool cannot capture more than 100% of the price move.
-        if (_backrunCaptureFractionE6 > VolatileFeeCalculation.ONE_E6) {
-            revert BackrunCaptureFractionTooLarge(_backrunCaptureFractionE6);
-        }
-    }
-
     /// @notice Validates the skew ceiling against the resting spread and the fee ceiling
     /// @param _maxSkewE6 The skew ceiling to validate
     /// @param _restingSpreadE6 The resting spread the ceiling must fit inside
@@ -207,10 +200,18 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         if (_maxMidFadeE6 > VolatileFeeCalculation.MAX_FEE_E6) revert MaxMidFadeTooLarge(_maxMidFadeE6);
     }
 
-    /// @notice Validates the restore fraction against 100% (1e6)
-    /// @param _restoreFractionE6 The restore fraction to validate
-    function _validateRestoreFractionE6(uint24 _restoreFractionE6) internal pure {
-        // Restore can add back at most what the permanent fee went down by.
-        if (_restoreFractionE6 > VolatileFeeCalculation.ONE_E6) revert InvalidRestoreFraction(_restoreFractionE6);
+    /// @notice Validates a fraction (backrunCaptureFractionE6 or restoreFractionE6) against 100% (1e6)
+    /// @param _fractionE6 The fraction to validate
+    function _validateFractionE6(uint24 _fractionE6) internal pure {
+        // Capture cannot take more than the whole price move, and restore cannot add back more than the
+        // permanent fee went down by.
+        if (_fractionE6 > VolatileFeeCalculation.ONE_E6) revert FractionTooLarge(_fractionE6);
+    }
+
+    /// @notice Validates a threshold (backrunThresholdE6 or restoreThresholdE6) against 100% (1e6)
+    /// @param _thresholdE6 The threshold to validate
+    function _validateThresholdE6(uint24 _thresholdE6) internal pure {
+        // A down move is always below 100%, so a threshold at or above it would only ever apply to up moves.
+        if (_thresholdE6 >= VolatileFeeCalculation.ONE_E6) revert ThresholdTooLarge(_thresholdE6);
     }
 }

@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/e2544672ce13904b89359af639381bcf8bd77773/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -222,22 +222,6 @@ function _validateRestingSpreadE6(uint24 _restingSpreadE6) internal pure;
 | ---- | ---- | ----------- |
 | _restingSpreadE6 | `uint24` | The resting spread to validate |
 
-<a id="_validatebackruncapturefractione6-uint24"></a>
-
-### _validateBackrunCaptureFractionE6
-
-Validates the backrun capture fraction
-
-```solidity
-function _validateBackrunCaptureFractionE6(uint24 _backrunCaptureFractionE6) internal pure;
-```
-
-**Parameters**
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _backrunCaptureFractionE6 | `uint24` | The capture fraction to validate |
-
 <a id="_validatemaxskewe6-uint24-uint24"></a>
 
 ### _validateMaxSkewE6
@@ -295,21 +279,37 @@ function _validateMaxMidFadeE6(uint24 _maxMidFadeE6) internal pure;
 | ---- | ---- | ----------- |
 | _maxMidFadeE6 | `uint24` | The fade cap to validate |
 
-<a id="_validaterestorefractione6-uint24"></a>
+<a id="_validatefractione6-uint24"></a>
 
-### _validateRestoreFractionE6
+### _validateFractionE6
 
-Validates the restore fraction against 100% (1e6)
+Validates a fraction (backrunCaptureFractionE6 or restoreFractionE6) against 100% (1e6)
 
 ```solidity
-function _validateRestoreFractionE6(uint24 _restoreFractionE6) internal pure;
+function _validateFractionE6(uint24 _fractionE6) internal pure;
 ```
 
 **Parameters**
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _restoreFractionE6 | `uint24` | The restore fraction to validate |
+| _fractionE6 | `uint24` | The fraction to validate |
+
+<a id="_validatethresholde6-uint24"></a>
+
+### _validateThresholdE6
+
+Validates a threshold (backrunThresholdE6 or restoreThresholdE6) against 100% (1e6)
+
+```solidity
+function _validateThresholdE6(uint24 _thresholdE6) internal pure;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _thresholdE6 | `uint24` | The threshold to validate |
 
 ## Structs
 
