@@ -115,7 +115,9 @@ library VolatileFeeCalculation {
     /// @param oldLeanPermFeeE6 Leaning side's previous permanent fee (last block)
     /// @param blockPriceImpact Price impact since the previous block open
     /// @param backrunCaptureFractionE6 LP share of backrun profit
-    /// @param backrunThresholdE6 Price impact level that arms the backrun charge
+    /// @param backrunThresholdE6 Price impact threshold at which the backrun fee component is active
+    /// @param restoreFractionE6 Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it
+    /// @param restoreThresholdE6 Price impact threshold at which the restore fee component is active
     /// @return tempFeeE6 Temporary fee on the backrun side
     function temporaryBackrunFee(
         uint24 newLeanPermFeeE6,
@@ -128,7 +130,7 @@ library VolatileFeeCalculation {
     ) internal pure returns (uint24 tempFeeE6) {
         // tempFee has 2 components:
         if (blockPriceImpact.gte(restoreThresholdE6)) {
-            // restore term = restoreFraction * (newLeanPermFee - oldLeanPermFee), applied only when the price moved more than the restoreThresholdE6
+            // restore term = restoreFraction * (newLeanPermFee - oldLeanPermFee), applied only when the price moved at least the restoreThresholdE6
             uint256 feeDelta;
             unchecked {
                 // newLeanPermFee = min(oldLeanPermFee + step, maxSkew) and oldLeanPermFee <= maxSkew: every config write resets it

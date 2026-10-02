@@ -67,9 +67,9 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @return skewRateE6 Baseline lean per unit of price impact
     /// @return maxSkewStepE6 Max skew change per block
     /// @return maxSkewE6 Skew ceiling
-    /// @return backrunThresholdE6 Min price impact that arms the backrun charge
-    /// @return restoreFractionE6 Fraction of the baseline in the next block's baseline calculation
-    /// @return restoreThresholdE6 Price impact level that triggers the restore mechanism
+    /// @return backrunThresholdE6 Price impact threshold at which the backrun fee component is active
+    /// @return restoreFractionE6 Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it
+    /// @return restoreThresholdE6 Price impact threshold at which the restore fee component is active
     function feeConfig(PoolId poolId)
         public
         view
@@ -132,6 +132,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
         $.feeConfig[_poolId] = _feeConfig;
         // Clear block price and temporary fee, and reset perm fees to restingSpread / 2
+        // blockNumber 0 makes the next swap, even in this block, start fresh from the current pool price.
         $.feeState[_poolId] = VolatileFeeState({
             blockNumber: 0,
             sqrtPriceTopX96: 0,
@@ -209,7 +210,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     /// @notice Validates the restore fraction against 100% (1e6)
     /// @param _restoreFractionE6 The restore fraction to validate
     function _validateRestoreFractionE6(uint24 _restoreFractionE6) internal pure {
-        // The pool cannot capture more than 100% of the price move.
+        // Restore can add back at most what the permanent fee went down by.
         if (_restoreFractionE6 > VolatileFeeCalculation.ONE_E6) revert InvalidRestoreFraction(_restoreFractionE6);
     }
 }

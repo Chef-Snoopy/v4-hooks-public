@@ -5,7 +5,7 @@ description: "Per-pool volatile fee config and state, managed by the config mana
 
 # VolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/f2c4c63b3e2afbde05d91c463de609959196499f/src/volatile/base/VolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/base/VolatileFeeConfiguration.sol)
 
 **Inherits:** [HookRoles](/src/base/abstract.HookRoles), BlockNumberish, [IVolatileFeeConfiguration](/src/volatile/interfaces/interface.IVolatileFeeConfiguration)
 
@@ -125,9 +125,9 @@ function feeConfig(PoolId poolId)
 | skewRateE6 | `uint24` | Baseline lean per unit of price impact |
 | maxSkewStepE6 | `uint24` | Max skew change per block |
 | maxSkewE6 | `uint24` | Skew ceiling |
-| backrunThresholdE6 | `uint24` | Min price impact that arms the backrun charge |
-| restoreFractionE6 | `uint24` | Fraction of the baseline in the next block's baseline calculation |
-| restoreThresholdE6 | `uint24` | Price impact level that triggers the restore mechanism |
+| backrunThresholdE6 | `uint24` | Price impact threshold at which the backrun fee component is active |
+| restoreFractionE6 | `uint24` | Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it |
+| restoreThresholdE6 | `uint24` | Price impact threshold at which the restore fee component is active |
 
 <a id="feestate-poolid"></a>
 

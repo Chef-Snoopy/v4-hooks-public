@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -191,9 +191,9 @@ function temporaryBackrunFee(
 | oldLeanPermFeeE6 | `uint24` | Leaning side's previous permanent fee (last block) |
 | blockPriceImpact | `RelativeMove` | Price impact since the previous block open |
 | backrunCaptureFractionE6 | `uint24` | LP share of backrun profit |
-| backrunThresholdE6 | `uint24` | Price impact level that arms the backrun charge |
-| restoreFractionE6 | `uint24` |  |
-| restoreThresholdE6 | `uint24` |  |
+| backrunThresholdE6 | `uint24` | Price impact threshold at which the backrun fee component is active |
+| restoreFractionE6 | `uint24` | Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it |
+| restoreThresholdE6 | `uint24` | Price impact threshold at which the restore fee component is active |
 
 **Returns**
 

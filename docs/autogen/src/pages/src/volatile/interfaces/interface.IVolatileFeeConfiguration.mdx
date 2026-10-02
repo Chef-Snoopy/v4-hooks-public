@@ -5,7 +5,7 @@ description: "Interface for the volatile fee configuration (config-manager-owned
 
 # IVolatileFeeConfiguration
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/d18dcbc1826932c0e8df0463dac04e5fb10f3273/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
 
 Interface for the volatile fee configuration (config-manager-owned per-pool params).
 
@@ -176,7 +176,7 @@ error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
 
 ### InvalidRestoreFraction
 
-Thrown when restoreFractionE6 exceeds 1e6 (100%), which would overflow the next block's baseline calculation
+Thrown when restoreFractionE6 exceeds 1e6 (100%); restore cannot add back more than the permanent fee went down by
 
 ```solidity
 error InvalidRestoreFraction(uint24 restoreFractionE6);

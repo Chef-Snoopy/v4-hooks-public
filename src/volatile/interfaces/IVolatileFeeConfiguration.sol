@@ -13,9 +13,9 @@ struct VolatileFeeConfig {
     uint24 skewRateE6; // leaning side's permanent fee step per unit of price impact
     uint24 maxSkewStepE6; // cap on the leaning side's permanent fee step per block; <= 2 * maxSkewE6 - restingSpreadE6
     uint24 maxSkewE6; // cap on either side's permanent fee; restingSpreadE6 / 2 <= maxSkewE6 <= restingSpreadE6
-    uint24 backrunThresholdE6; // min price impact that arms the backrun charge
-    uint24 restoreFractionE6; // fraction of the baseline in the next block's baseline calculation
-    uint24 restoreThresholdE6; // min price impact that arms the baseline restore
+    uint24 backrunThresholdE6; // price impact threshold at which the backrun fee component is active
+    uint24 restoreFractionE6; // share of what the backrun side's permanent fee went down by that the temp fee adds back; 1e6 = all of it
+    uint24 restoreThresholdE6; // price impact threshold at which the restore fee component is active
 }
 
 /// @notice Per-pool fee state, advanced on the first swap of each block. Packs into one slot.
@@ -69,7 +69,7 @@ interface IVolatileFeeConfiguration {
     /// @param maxMidFadeE6 The submitted continuing-fade cap
     error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
 
-    /// @notice Thrown when restoreFractionE6 exceeds 1e6 (100%), which would overflow the next block's baseline calculation
+    /// @notice Thrown when restoreFractionE6 exceeds 1e6 (100%); restore cannot add back more than the permanent fee went down by
     /// @param restoreFractionE6 The submitted restore fraction
     error InvalidRestoreFraction(uint24 restoreFractionE6);
 
