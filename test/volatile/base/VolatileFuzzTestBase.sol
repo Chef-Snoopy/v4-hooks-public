@@ -28,6 +28,8 @@ abstract contract VolatileFuzzTestBase is Test {
         uint24 maxSkewStepSeed;
         uint24 maxSkewSeed;
         uint24 backrunThresholdSeed;
+        uint24 restoreFractionSeed;
+        uint24 restoreThresholdSeed;
     }
 
     /// Passes every `_updateFeeConfig` check. At RS = MAX_RESTING_SPREAD_E6 the reset split is 999_998 / 999_998 with a
@@ -48,8 +50,8 @@ abstract contract VolatileFuzzTestBase is Test {
             maxSkewStepE6: uint24(bound(uint256(s.maxSkewStepSeed), 0, 2 * uint256(maxSkewE6) - restingSpreadE6)),
             maxSkewE6: maxSkewE6,
             backrunThresholdE6: s.backrunThresholdSeed,
-            restoreFractionE6: RESTORE_FRACTION_E6,
-            restoreThresholdE6: RESTORE_THRESHOLD_E6
+            restoreFractionE6: uint24(bound(uint256(s.restoreFractionSeed), 0, VolatileFeeCalculation.ONE_E6)),
+            restoreThresholdE6: s.restoreThresholdSeed
         });
     }
 

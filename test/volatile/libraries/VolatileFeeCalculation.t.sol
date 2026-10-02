@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {VolatileFuzzTestBase} from "../base/VolatileFuzzTestBase.sol";
+import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {VolatileFeeCalculation} from "../../../src/volatile/libraries/VolatileFeeCalculation.sol";
 import {RelativeMove} from "../../../src/volatile/libraries/RelativeMoveLibrary.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
@@ -319,25 +320,47 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
             VolatileFeeCalculation.newPermAndTempFee(s, oldAskPermFeeE6, _moveFromE6(piE6, up));
         assertEq(state.tempOnBid, up, "temp fee must sit on the backrun side");
         uint24 newAskPermFeeE6 = state.askPermFeeE6;
-        (uint24 askBaselineFeeE6, uint24 bidBaselineFeeE6) = _baselines(state, s.restingSpreadE6);
+        (uint24 askNewBaselineFeeE6, uint24 bidNewBaselineFeeE6) = _baselines(state, s.restingSpreadE6);
 
         assertGe(newAskPermFeeE6, s.restingSpreadE6 - s.maxSkewE6, "askPerm below band");
         assertLe(newAskPermFeeE6, s.maxSkewE6, "askPerm above band");
 
+        // lean: the side the price moved toward; its perm fee steps up by at most maxSkewStep
         uint256 oldLean = up ? oldAskPermFeeE6 : s.restingSpreadE6 - oldAskPermFeeE6;
         uint256 newLean = up ? newAskPermFeeE6 : s.restingSpreadE6 - newAskPermFeeE6;
         assertGe(newLean, oldLean, "leaning side moved back");
         assertLe(newLean, oldLean + s.maxSkewStepE6, "leaning side moved more than one step");
-        assertEq(up ? askBaselineFeeE6 : bidBaselineFeeE6, newLean, "leaning baseline != new perm fee");
+        assertEq(up ? askNewBaselineFeeE6 : bidNewBaselineFeeE6, newLean, "leaning baseline != new perm fee");
 
-        uint256 otherBaseline = up ? bidBaselineFeeE6 : askBaselineFeeE6;
-        uint256 otherOldPermE6 = s.restingSpreadE6 - oldLean;
-        assertGe(otherBaseline, otherOldPermE6, "backrun side below its perm fee");
-        assertLe(otherBaseline, otherOldPermE6 + MAX_FEE_E6, "backrun side above perm fee + ceiling");
-        if (piE6 < s.backrunThresholdE6) assertEq(otherBaseline, otherOldPermE6, "charged below threshold");
+        // other: the backrun side, opposite the leaning side; its perm fee is RS - lean and drops by the step
+        uint256 otherNewBaselineE6 = up ? bidNewBaselineFeeE6 : askNewBaselineFeeE6;
+        uint256 otherNewPermE6 = s.restingSpreadE6 - newLean;
+        // the temp fee adds restoreFraction * step back when PI >= restoreThreshold; the step is newLean - oldLean
+        uint256 restoreE6 = piE6 >= s.restoreThresholdE6
+            ? FixedPointMathLib.mulDivUp(newLean - oldLean, s.restoreFractionE6, ONE_E6)
+            : 0;
+        assertGe(otherNewBaselineE6, otherNewPermE6, "backrun side below its perm fee");
+        assertLe(otherNewBaselineE6, MAX_FEE_E6, "backrun side above ceiling");
+        // the temp fee adds backrunCaptureFraction * PI when PI >= backrunThreshold; the sum clamps to the ceiling
+        uint256 backrunE6 =
+            piE6 >= s.backrunThresholdE6 ? FixedPointMathLib.mulDivUp(piE6, s.backrunCaptureFractionE6, ONE_E6) : 0;
+        // If backrun threshold not met, fee must be equal to perm + restore (restore can be 0 if threshold not met)
+        if (piE6 < s.backrunThresholdE6) {
+            assertEq(
+                otherNewBaselineE6, otherNewPermE6 + restoreE6, "backrun side != perm fee + restore below threshold"
+            );
+        }
+        // If backrun threshold not met, fee must be equal to perm + backrun (backrun can be 0 if threshold not met)
+        if (piE6 < s.restoreThresholdE6) {
+            assertEq(
+                otherNewBaselineE6,
+                FixedPointMathLib.min(otherNewPermE6 + backrunE6, MAX_FEE_E6),
+                "backrun side != perm fee + backrun below restore threshold"
+            );
+        }
         if (piE6 == 0) {
             assertEq(newLean, oldLean, "flat block moved the perm fee");
-            assertEq(otherBaseline, otherOldPermE6, "flat block charged the backrun side");
+            assertEq(otherNewBaselineE6, otherNewPermE6, "flat block charged the backrun side");
         }
     }
 
