@@ -238,6 +238,33 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         assertEq(_tempFee(2000, 1500, MAX_PI_E6, uint24(ONE_E6), 0), MAX_FEE_E6);
     }
 
+    /// Step 200 (perm 1500 -> 1700), restoreThreshold 1000, restoreFraction 100%. PI stays under the backrun
+    /// threshold (2000), so the temp fee is the restore term alone.
+    function test_temporaryBackrunFee_belowRestoreThreshold_skipsRestore() public pure {
+        uint24 restoreThresholdE6 = 1000;
+        // PI 999 < restoreThreshold: no restore, temp fee 0
+        assertEq(
+            _tempFee(
+                1700, 1500, restoreThresholdE6 - 1, BCF_E6, BACKRUN_THRESHOLD_E6, uint24(ONE_E6), restoreThresholdE6
+            ),
+            0
+        );
+        // PI 1000 == restoreThreshold: restore is on (gte), temp fee = 100% * 200 = 200
+        assertEq(
+            _tempFee(1700, 1500, restoreThresholdE6, BCF_E6, BACKRUN_THRESHOLD_E6, uint24(ONE_E6), restoreThresholdE6),
+            200
+        );
+    }
+
+    /// restoreThreshold 1000, restoreFraction 50%, PI 1500: above the gate and under the backrun threshold (2000),
+    /// so the temp fee is restoreFraction * step, rounded up.
+    function test_temporaryBackrunFee_aboveRestoreThreshold_addsFractionOfStep() public pure {
+        // step 200 (perm 1500 -> 1700): temp fee = 50% * 200 = 100
+        assertEq(_tempFee(1700, 1500, 1500, BCF_E6, BACKRUN_THRESHOLD_E6, 500_000, 1000), 100);
+        // step 201 (perm 1500 -> 1701): 50% * 201 = 100.5 rounds up, temp fee 101
+        assertEq(_tempFee(1701, 1500, 1500, BCF_E6, BACKRUN_THRESHOLD_E6, 500_000, 1000), 101);
+    }
+
     function test_fuzz_temporaryBackrunFee_gatedBoundedAndMonotone(
         uint24 oldPermSeed,
         uint24 stepSeed,
@@ -389,14 +416,26 @@ contract VolatileFeeCalculationTest is VolatileFuzzTestBase {
         pure
         returns (uint24)
     {
+        return _tempFee(newPermFeeE6, oldPermFeeE6, piE6, bcfE6, thresholdE6, RESTORE_FRACTION_E6, RESTORE_THRESHOLD_E6);
+    }
+
+    function _tempFee(
+        uint24 newPermFeeE6,
+        uint24 oldPermFeeE6,
+        uint256 piE6,
+        uint24 bcfE6,
+        uint24 thresholdE6,
+        uint24 restoreFractionE6,
+        uint24 restoreThresholdE6
+    ) internal pure returns (uint24) {
         return VolatileFeeCalculation.temporaryBackrunFee(
             newPermFeeE6,
             oldPermFeeE6,
             _moveFromE6(piE6, false),
             bcfE6,
             thresholdE6,
-            RESTORE_FRACTION_E6,
-            RESTORE_THRESHOLD_E6
+            restoreFractionE6,
+            restoreThresholdE6
         );
     }
 
