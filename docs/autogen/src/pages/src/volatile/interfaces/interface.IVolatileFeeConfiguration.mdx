@@ -1,0 +1,198 @@
+---
+title: "IVolatileFeeConfiguration"
+description: "Interface for the volatile fee configuration (config-manager-owned per-pool params)."
+---
+
+# IVolatileFeeConfiguration
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/e2544672ce13904b89359af639381bcf8bd77773/src/volatile/interfaces/IVolatileFeeConfiguration.sol)
+
+Interface for the volatile fee configuration (config-manager-owned per-pool params).
+
+## Functions
+
+<a id="updatefeeconfig-poolid-volatilefeeconfig"></a>
+
+### updateFeeConfig
+
+Sets a pool's fee config.
+
+```solidity
+function updateFeeConfig(PoolId poolId, VolatileFeeConfig calldata feeConfig) external;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolId | `PoolId` | Pool to update |
+| feeConfig | `VolatileFeeConfig` | New fee config |
+
+<a id="batchupdatefeeconfig-poolid-volatilefeeconfig"></a>
+
+### batchUpdateFeeConfig
+
+Sets fee config for multiple pools.
+
+```solidity
+function batchUpdateFeeConfig(PoolId[] calldata poolIds, VolatileFeeConfig[] calldata feeConfigs) external;
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolIds | `PoolId[]` | Pools to update |
+| feeConfigs | `VolatileFeeConfig[]` | New config per pool, matched to poolIds by index |
+
+## Events
+
+### FeeConfigUpdated
+
+Emitted when a pool's fee config is updated
+
+```solidity
+event FeeConfigUpdated(PoolId indexed poolId, VolatileFeeConfig feeConfig);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolId | `PoolId` | The pool whose config changed |
+| feeConfig | `VolatileFeeConfig` | The new fee config |
+
+## Errors
+
+### RestingSpreadCannotBeZero
+
+Thrown when restingSpreadE6 is 0, the sentinel for an unconfigured pool
+
+```solidity
+error RestingSpreadCannotBeZero();
+```
+
+### MaxSkewTooLarge
+
+Thrown when maxSkewE6 exceeds restingSpreadE6, which would let one side's fee exceed the whole spread
+
+```solidity
+error MaxSkewTooLarge(uint24 maxSkewE6, uint24 restingSpreadE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| maxSkewE6 | `uint24` | The submitted skew ceiling |
+| restingSpreadE6 | `uint24` | The submitted resting spread |
+
+### MaxSkewTooSmall
+
+Thrown when maxSkewE6 is below restingSpreadE6 / 2, the neutral center the leaning side starts from
+
+```solidity
+error MaxSkewTooSmall(uint24 maxSkewE6, uint24 restingSpreadE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| maxSkewE6 | `uint24` | The submitted skew ceiling |
+| restingSpreadE6 | `uint24` | The submitted resting spread |
+
+### RestingSpreadTooLarge
+
+Thrown when restingSpreadE6 exceeds 2 * MAX_FEE_E6, the sum of both sides' fee ceilings
+
+```solidity
+error RestingSpreadTooLarge(uint24 restingSpreadE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| restingSpreadE6 | `uint24` | The submitted resting spread |
+
+### MaxSkewAboveMaxFee
+
+Thrown when maxSkewE6 exceeds MAX_FEE_E6; the excess is skew band the fee clamp would remove
+
+```solidity
+error MaxSkewAboveMaxFee(uint24 maxSkewE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| maxSkewE6 | `uint24` | The submitted skew ceiling |
+
+### MaxSkewStepTooLarge
+
+Thrown when maxSkewStepE6 exceeds 2 * maxSkewE6 - restingSpreadE6, the width of the permanent-fee band
+
+```solidity
+error MaxSkewStepTooLarge(uint24 maxSkewStepE6, uint24 maxSkewE6, uint24 restingSpreadE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| maxSkewStepE6 | `uint24` | The submitted per-block skew step cap |
+| maxSkewE6 | `uint24` | The submitted skew ceiling |
+| restingSpreadE6 | `uint24` | The submitted resting spread |
+
+### MaxMidFadeTooLarge
+
+Thrown when maxMidFadeE6 exceeds MAX_FEE_E6; baseline + fade must fit a uint24
+
+```solidity
+error MaxMidFadeTooLarge(uint24 maxMidFadeE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| maxMidFadeE6 | `uint24` | The submitted continuing-fade cap |
+
+### FractionTooLarge
+
+Thrown when backrunCaptureFractionE6 or restoreFractionE6 exceeds 1e6 (100%)
+
+```solidity
+error FractionTooLarge(uint24 fractionE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| fractionE6 | `uint24` | The submitted fraction |
+
+### ThresholdTooLarge
+
+Thrown when backrunThresholdE6 or restoreThresholdE6 is 1e6 (100%) or more; a down move can never reach it
+
+```solidity
+error ThresholdTooLarge(uint24 thresholdE6);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| thresholdE6 | `uint24` | The submitted threshold |
+
+### LengthMismatch
+
+Thrown when poolIds and feeConfigs arrays have different lengths
+
+```solidity
+error LengthMismatch();
+```
+

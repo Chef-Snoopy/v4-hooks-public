@@ -1,0 +1,89 @@
+---
+title: "IVolatilePairHook"
+description: "Interface for VolatilePairHook"
+---
+
+# IVolatilePairHook
+
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/fe085a56078e89250f2b48a1516bf870883ccc6b/src/volatile/interfaces/IVolatilePairHook.sol)
+
+**Inherits:** [IDynamicFeeHook](/src/interfaces/interface.IDynamicFeeHook)
+
+Interface for VolatilePairHook
+
+## Functions
+
+<a id="initializepool-poolkey-uint160-volatilefeeconfig"></a>
+
+### initializePool
+
+Initializes a pool on the PoolManager and sets its fee config.
+
+```solidity
+function initializePool(PoolKey calldata poolKey, uint160 sqrtPriceX96, VolatileFeeConfig calldata feeConfig)
+        external
+        returns (int24 tick);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolKey | `PoolKey` | Pool key; fee must be the dynamic-fee sentinel and hooks must be this contract |
+| sqrtPriceX96 | `uint160` | Initial sqrt price |
+| feeConfig | `VolatileFeeConfig` | Fee config to seed for the pool |
+
+**Returns**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tick | `int24` | Resulting tick |
+
+## Events
+
+### PoolInitialized
+
+Emitted when a pool is initialized through this hook
+
+```solidity
+event PoolInitialized(PoolKey indexed poolKey, uint160 sqrtPriceX96, VolatileFeeConfig feeConfig);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| poolKey | `PoolKey` | The pool that was initialized |
+| sqrtPriceX96 | `uint160` | The initial sqrt price |
+| feeConfig | `VolatileFeeConfig` | The fee config applied to the pool |
+
+## Errors
+
+### MustUseDynamicFee
+
+Thrown when poolKey.fee is not the dynamic-fee sentinel
+
+```solidity
+error MustUseDynamicFee(uint24 lpFee);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| lpFee | `uint24` | The fee that was provided |
+
+### InvalidHookAddress
+
+Thrown when poolKey.hooks is not this contract
+
+```solidity
+error InvalidHookAddress(address hookAddress);
+```
+
+**Parameters**
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| hookAddress | `address` | The address that was provided |
+
