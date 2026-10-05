@@ -68,9 +68,12 @@ current implementation as of the listed commit.
 | Network  | Proxy (hook)                               | Implementation                             | Commit Hash | Date       |
 | -------- | ------------------------------------------ | ------------------------------------------ | ----------- | ---------- |
 | Ethereum | 0x0000113dCf4ADd69999Fad8F20F2b63F979bfcC0 | 0x5f216d21b1C81346938EDDc1Df7e0111A0F64000 | ecb8c96     | 2026-07-27 |
+| Arbitrum | 0x630e9CaC0ffF557Bd3A01DAa111ed253c771Bcc0 | 0x424e2f8D89eeaB51AF10669D149Fbd4BEB090000 | ecb8c96     | 2026-10-05 |
 
 `owner` and `configManager` are the [Uniswap Governance Timelock](https://etherscan.io/address/0x1a9C8182C09F50C8318d769245beA52c32BE35BC),
 so fee-config changes and implementation upgrades go through a governance proposal.
+On Arbitrum they are the Timelock's [L1-to-L2 alias](https://arbiscan.io/address/0x2BAD8182C09F50c8318d769245beA52C32Be46CD),
+so the same governance proposals reach it through the Arbitrum bridge.
 
 #### Pools
 
