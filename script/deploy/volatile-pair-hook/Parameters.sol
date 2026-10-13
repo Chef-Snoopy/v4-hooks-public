@@ -86,11 +86,11 @@ contract Parameters {
         });
         parameters[SEPOLIA_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0xE03A1074c86CFeDd5C142C4F04F1a1536e203543),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
+            volatilePairHookProxySalt: bytes32(uint256(0x2d3)),
+            volatilePairHookImplementationSalt: bytes32(uint256(0x26d2)),
+            owner: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95,
+            poolInitializer: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95,
+            configManager: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95
         });
     }
 
