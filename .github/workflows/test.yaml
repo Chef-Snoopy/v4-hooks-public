@@ -2,9 +2,9 @@ name: test
 
 on:
   pull_request:
-    branches: [main, master, staging, dev, dev-*, public*, feat/**, fix/**]
+    branches: [main, dev-*, public*, publish-*, feat/**, fix/**]
   push:
-    branches: [main, master, staging, dev, dev-*, public*]
+    branches: [main, dev-*, public*, publish-*]
 
 env:
   FOUNDRY_PROFILE: ${{ github.event_name == 'push' && 'ci' || 'pr' }}
