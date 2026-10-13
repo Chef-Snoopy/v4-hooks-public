@@ -60,18 +60,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     function feeConfig(PoolId poolId)
         public
         view
-        returns (
-            uint24 restingSpreadE6,
-            uint24 backrunCaptureFractionE6,
-            uint24 midFadeRateE6,
-            uint24 maxMidFadeE6,
-            uint24 skewRateE6,
-            uint24 maxSkewStepE6,
-            uint24 maxSkewE6,
-            uint24 backrunThresholdE6,
-            uint24 restoreFractionE6,
-            uint24 restoreThresholdE6
-        )
+        returns (uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24)
     {
         VolatileFeeConfig storage config = _getVolatileFeeConfigurationStorage().feeConfig[poolId];
         return (

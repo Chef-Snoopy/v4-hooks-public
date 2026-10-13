@@ -71,7 +71,7 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
     function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
         internal
         override
-        returns (bytes4 selector, BeforeSwapDelta delta, uint24 lpFeeOverride)
+        returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolId poolId = key.toId();
         (
@@ -105,29 +105,23 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
     ///      since the previous open, then caches the new open. Same block: returns the stored values
     ///      unchanged.
     /// @param _poolId Pool id
-    /// @return poolState Fee state, advanced if isNewBlock
-    /// @return config Fee config
-    /// @return currentSqrtPriceX96 Pool's current sqrt price
-    /// @return isNewBlock True on the first swap of a new block, or right after a config reset
+    /// @return Fee state, advanced on a new block
+    /// @return Fee config
+    /// @return Pool's current sqrt price
+    /// @return True on the first swap of a new block, or right after a config reset
     function _loadTopOfBlockState(PoolId _poolId)
         private
         view
-        returns (
-            VolatileFeeState memory poolState,
-            VolatileFeeConfig memory config,
-            uint160 currentSqrtPriceX96,
-            bool isNewBlock
-        )
+        returns (VolatileFeeState memory, VolatileFeeConfig memory, uint160, bool)
     {
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
-        poolState = $.feeState[_poolId];
-        config = $.feeConfig[_poolId];
-        (currentSqrtPriceX96,,,) = poolManager.getSlot0(_poolId);
+        VolatileFeeState memory poolState = $.feeState[_poolId];
+        VolatileFeeConfig memory config = $.feeConfig[_poolId];
+        (uint160 currentSqrtPriceX96,,,) = poolManager.getSlot0(_poolId);
         uint40 currentBlock = uint40(_getBlockNumberish());
 
         // If the stored pool state is fresh, return it
         if (currentBlock <= poolState.blockNumber) return (poolState, config, currentSqrtPriceX96, false);
-        isNewBlock = true;
 
         // Update fee state on a new block. The temp fee set here applies until the first swap of a later block.
         // Updates only when there's a previous price to compare against
@@ -139,6 +133,7 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         }
         poolState.sqrtPriceTopX96 = currentSqrtPriceX96;
         poolState.blockNumber = currentBlock;
+        return (poolState, config, currentSqrtPriceX96, true);
     }
 
     /// @notice Fee one swap direction pays, escalated from the block's baseline by in-block displacement.

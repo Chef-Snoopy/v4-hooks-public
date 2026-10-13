@@ -5,7 +5,7 @@ description: "Pure math for the volatile dynamic-fee algorithm. All `*E6` values
 
 # VolatileFeeCalculation
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/0a9c0dcc8f72c3bc7cc20aab133d5b1bfe69ea2b/src/volatile/libraries/VolatileFeeCalculation.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/72863d45a495d10b81d8baa4c17f7b340d03ab9c/src/volatile/libraries/VolatileFeeCalculation.sol)
 
 **Title:** VolatileFeeCalculation
 
@@ -59,7 +59,7 @@ uint256 internal constant Q48 = 2 ** 48;
 Relative move between two sqrt prices, as an exact ratio of the reference price.
 
 ```solidity
-function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal pure returns (RelativeMove move);
+function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal pure returns (RelativeMove);
 ```
 
 **Parameters**
@@ -73,7 +73,7 @@ function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| move | `RelativeMove` | The ratio \|P_new - P_ref\| / P_ref and whether the price increased |
+| &lt;none&gt; | `RelativeMove` | The ratio \|P_new - P_ref\| / P_ref and whether the price increased |
 
 <a id="newpermanentfee-uint24-relativemove-uint24-uint24-uint24"></a>
 
@@ -255,7 +255,7 @@ side can exceed the ceiling and needs the clamp.
 function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool zeroForOne)
         internal
         pure
-        returns (uint24 baselineFeeE6);
+        returns (uint24);
 ```
 
 **Parameters**
@@ -270,7 +270,7 @@ function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| baselineFeeE6 | `uint24` | Baseline for that side, clamped to MAX_FEE_E6 |
+| &lt;none&gt; | `uint24` | Baseline for that side, clamped to MAX_FEE_E6 |
 
 <a id="clamptomaxfeee6-uint256"></a>
 
