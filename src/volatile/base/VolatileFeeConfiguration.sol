@@ -51,7 +51,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         onlyRole(CONFIG_MANAGER_ROLE)
     {
         if (poolIds_.length != feeConfigs_.length) revert LengthMismatch();
-        for (uint256 i = 0; i < poolIds_.length; i++) {
+        for (uint256 i; i < poolIds_.length; i++) {
             _checkPoolInitialized(poolIds_[i]);
             _updateFeeConfig(poolIds_[i], feeConfigs_[i]);
             emit FeeConfigUpdated(poolIds_[i], feeConfigs_[i]);
