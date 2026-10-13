@@ -103,7 +103,7 @@ Every config write (`initializePool`, `updateFeeConfig`, `batchUpdateFeeConfig`)
 
 `skewRateE6` and `midFadeRateE6` are not bounded. They are limited in effect by `maxSkewStepE6` and `maxMidFadeE6`, and every fee is clamped at `MAX_FEE_E6`.
 
-Every config write also resets the pool's fee state: `blockNumber = 0`, `sqrtPriceTopX96 = 0`, `askPermFeeE6 = restingSpreadE6 / 2`, `tempFeeE6 = 0`, `tempOnBid = false`.
+Every config write also resets the pool's fee state: `blockNumber = 0`, `sqrtPriceTopX96 = 0`, `askPermFeeE6 = restingSpreadE6 / 2`, `tempFeeE6 = 0`, `tempOnBid = false`. The division rounds down and the bid permanent fee is the rest of the spread, so with an odd `restingSpreadE6` the bid starts 1 pip above the ask.
 
 ### Access Control
 
