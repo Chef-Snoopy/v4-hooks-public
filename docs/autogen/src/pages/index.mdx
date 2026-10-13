@@ -68,9 +68,14 @@ current implementation as of the listed commit.
 | Network  | Proxy (hook)                               | Implementation                             | Commit Hash | Date       |
 | -------- | ------------------------------------------ | ------------------------------------------ | ----------- | ---------- |
 | Ethereum | 0x0000113dCf4ADd69999Fad8F20F2b63F979bfcC0 | 0x5f216d21b1C81346938EDDc1Df7e0111A0F64000 | ecb8c96     | 2026-07-27 |
+| Arbitrum | 0x630e9CaC0ffF557Bd3A01DAa111ed253c771Bcc0 | 0x424e2f8D89eeaB51AF10669D149Fbd4BEB090000 | 9da6be5     | 2026-10-05 |
+| Sepolia  | 0x2F45A94782d3e187BaB5F72448bb85d6d1d67CC0 | 0xDBc81fFadaB5ee9c9fB1c2D43Bef547EB9c64000 | 7abd34b     | 2026-07-22 |
 
-`owner` and `configManager` are the [Uniswap Governance Timelock](https://etherscan.io/address/0x1a9C8182C09F50C8318d769245beA52c32BE35BC),
-so fee-config changes and implementation upgrades go through a governance proposal.
+On Ethereum, `owner` and `configManager` are the [Uniswap Governance Timelock](https://etherscan.io/address/0x1a9C8182C09F50C8318d769245beA52c32BE35BC),
+so fee-config changes and implementation upgrades go through a governance proposal. On Arbitrum they are
+the same Timelock's aliased L2 address `0x2BAD8182C09F50c8318d769245beA52C32Be46CD`, reached through
+cross-chain governance messages. On Sepolia all three roles are the test deployer
+`0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95`.
 
 #### Pools
 
