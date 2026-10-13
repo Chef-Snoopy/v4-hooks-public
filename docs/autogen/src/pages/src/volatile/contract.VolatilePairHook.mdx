@@ -5,7 +5,7 @@ description: "Dynamic fee hook for volatile pairs (v2 skew + backrun algorithm);
 
 # VolatilePairHook
 
-[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/72863d45a495d10b81d8baa4c17f7b340d03ab9c/src/volatile/VolatilePairHook.sol)
+[Git Source](https://github.com/Uniswap/v4-hooks-public/blob/a2f87838068792cc46f4337ed0c4b3506607f907/src/volatile/VolatilePairHook.sol)
 
 **Inherits:** [BaseDynamicFeeHook](/src/base/abstract.BaseDynamicFeeHook), [VolatileFeeConfiguration](/src/volatile/base/abstract.VolatileFeeConfiguration), [IVolatilePairHook](/src/volatile/interfaces/interface.IVolatilePairHook)
 
@@ -126,9 +126,9 @@ function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, 
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| &lt;none&gt; | `bytes4` | selector Always IHooks.beforeSwap selector |
-| &lt;none&gt; | `BeforeSwapDelta` | delta Always zero for this hook |
-| &lt;none&gt; | `uint24` | lpFeeOverride Fee for this swap direction with the override flag set |
+| &lt;none&gt; | `bytes4` | Always IHooks.beforeSwap selector |
+| &lt;none&gt; | `BeforeSwapDelta` | Always zero for this hook |
+| &lt;none&gt; | `uint24` | Fee for this swap direction with the override flag set |
 
 <a id="_loadtopofblockstate-poolid"></a>
 

@@ -65,9 +65,9 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
     /// @notice Computes the swap's dynamic fee and overrides it via the v4 fee flag
     /// @param key Pool key of the pool that a swap will be made against
     /// @param params Uni V4 swap parameters
-    /// @return selector Always IHooks.beforeSwap selector
-    /// @return delta Always zero for this hook
-    /// @return lpFeeOverride Fee for this swap direction with the override flag set
+    /// @return Always IHooks.beforeSwap selector
+    /// @return Always zero for this hook
+    /// @return Fee for this swap direction with the override flag set
     function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
         internal
         override

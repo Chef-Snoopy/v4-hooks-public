@@ -50,7 +50,7 @@ Where: `VolatilePairHook.getFee`, `VolatilePairHook._getFee`
 
 ### 8. Price moves through ranges with no liquidity are free
 
-In a price range with no active liquidity, a swap moves the price at no cost and can set the fee state (block open price, skew, temp fee). Only thin or brand new pools are affected.
+In a price range with no active liquidity, a swap moves the price at no cost and can set the fee state (block open price, skew, temp fee). This affects thin pools: brand new pools, pools with sparse liquidity, and pools whose liquidity sits entirely on one side of the price. A normal pool can end up in that last state after a big move pushes the price past every position. In such a pool, one dust swap per block can keep the fee high on the side that trades into liquidity. A config reset does not help, because the state can be rebuilt in the next block. The hook is meant for pools that keep liquidity on both sides of the price.
 
 ## Configuration
 
