@@ -33,11 +33,13 @@ contract Parameters {
         // PoolManager addresses: https://docs.uniswap.org/contracts/v4/deployments
         parameters[ETHEREUM_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0x000000000004444c5dc75cB358380D2e3dE08A90),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
+            // mined for 0x000022Ec4eBD6b12294396E852E4C3876b253Cc0 (prefix 0x000022, flags 0x3CC0)
+            volatilePairHookProxySalt: 0x0000000000000000000000000000000000000000c7441c3a21254802cd8406f8,
+            volatilePairHookImplementationSalt: bytes32(uint256(0x43b9)),
+            // Uniswap Governance Timelock (admin: GovernorBravo 0x408ED6354d4973f66138C91495F2f2FCbd8724C3)
+            owner: 0x1a9C8182C09F50C8318d769245beA52c32BE35BC,
+            poolInitializer: 0xFc43582532E90Fa8726FE9cdb5FAd48f4e487d27,
+            configManager: 0x1a9C8182C09F50C8318d769245beA52c32BE35BC
         });
         parameters[SEPOLIA_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0xE03A1074c86CFeDd5C142C4F04F1a1536e203543),
