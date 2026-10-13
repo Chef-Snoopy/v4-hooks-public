@@ -105,6 +105,8 @@ contract Parameters {
         });
         parameters[SEPOLIA_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0xE03A1074c86CFeDd5C142C4F04F1a1536e203543),
+            // deployed 0x2F45A94782d3e187BaB5F72448bb85d6d1d67CC0 at 7abd34b; this salt no longer
+            // reproduces that address and a rerun would revert with FlagsMismatch
             stablePairHookProxySalt: bytes32(uint256(0x30ad)),
             stablePairHookImplementationSalt: bytes32(uint256(0x6e7e)),
             owner: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95,
