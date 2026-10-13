@@ -184,6 +184,8 @@ contract VolatilePairHookTest is VolatilePairTestBase, Deployers {
         VolatileFeeConfig memory config = _defaultConfig();
 
         vm.expectEmit(true, false, false, true, address(hook));
+        emit IVolatileFeeConfiguration.FeeConfigUpdated(testPoolKey.toId(), config);
+        vm.expectEmit(true, false, false, true, address(hook));
         emit IVolatilePairHook.PoolInitialized(testPoolKey, Constants.SQRT_PRICE_1_1, config);
         vm.prank(poolInitializer);
         int24 tick = hook.initializePool(testPoolKey, Constants.SQRT_PRICE_1_1, config);

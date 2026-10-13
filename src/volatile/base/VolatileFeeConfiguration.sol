@@ -42,7 +42,6 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     {
         _checkPoolInitialized(poolId_);
         _updateFeeConfig(poolId_, feeConfig_);
-        emit FeeConfigUpdated(poolId_, feeConfig_);
     }
 
     /// @inheritdoc IVolatileFeeConfiguration
@@ -54,7 +53,6 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         for (uint256 i; i < poolIds_.length; i++) {
             _checkPoolInitialized(poolIds_[i]);
             _updateFeeConfig(poolIds_[i], feeConfigs_[i]);
-            emit FeeConfigUpdated(poolIds_[i], feeConfigs_[i]);
         }
     }
 
@@ -101,7 +99,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     }
 
     /// @notice Validates the config, stores it, and resets the pool's fee state to neutral.
-    /// @dev Resets block state, skew, permanent fee and temporary fee state
+    /// @dev Resets block state, skew, permanent fee and temporary fee state.
     /// @param _poolId Pool to configure
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
@@ -125,6 +123,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
             tempFeeE6: 0,
             tempOnBid: false
         });
+        emit FeeConfigUpdated(_poolId, _feeConfig);
     }
 
     /// @notice Reverts PoolNotInitialized unless the pool has a stored config.
