@@ -90,4 +90,44 @@ interface IVolatileFeeConfiguration {
     /// @param poolIds Pools to update
     /// @param feeConfigs New config per pool, matched to poolIds by index
     function batchUpdateFeeConfig(PoolId[] calldata poolIds, VolatileFeeConfig[] calldata feeConfigs) external;
+
+    /// @notice Fee config for a pool.
+    /// @param poolId Pool to query
+    /// @return restingSpreadE6 Permanent pie: ask + bid fee
+    /// @return backrunCaptureFractionE6 LP share of backrun profit
+    /// @return midFadeRateE6 Continuing-fee growth rate per unit move
+    /// @return maxMidFadeE6 Cap on the continuing fade
+    /// @return skewRateE6 Baseline lean per unit of price impact
+    /// @return maxSkewStepE6 Max skew change per block
+    /// @return maxSkewE6 Skew ceiling
+    /// @return backrunThresholdE6 Price impact threshold at which the backrun fee component is active
+    /// @return restoreFractionE6 Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it
+    /// @return restoreThresholdE6 Price impact threshold at which the restore fee component is active
+    function feeConfig(PoolId poolId)
+        external
+        view
+        returns (
+            uint24 restingSpreadE6,
+            uint24 backrunCaptureFractionE6,
+            uint24 midFadeRateE6,
+            uint24 maxMidFadeE6,
+            uint24 skewRateE6,
+            uint24 maxSkewStepE6,
+            uint24 maxSkewE6,
+            uint24 backrunThresholdE6,
+            uint24 restoreFractionE6,
+            uint24 restoreThresholdE6
+        );
+
+    /// @notice Fee state for a pool.
+    /// @param poolId Pool to query
+    /// @return blockNumber Block of the last update. 0 if no swaps since last config update
+    /// @return sqrtPriceTopX96 Block-open sqrt price. 0 if no swaps since last config update
+    /// @return askPermFeeE6 Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6
+    /// @return tempFeeE6 One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee
+    /// @return tempOnBid True if tempFeeE6 is on the bid side, false if on the ask side
+    function feeState(PoolId poolId)
+        external
+        view
+        returns (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid);
 }

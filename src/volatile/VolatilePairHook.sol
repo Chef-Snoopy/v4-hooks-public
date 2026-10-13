@@ -82,7 +82,18 @@ contract VolatilePairHook is BaseDynamicFeeHook, VolatileFeeConfiguration, IVola
         ) = _loadTopOfBlockState(poolId);
 
         // Persists top of block state if this is the first swap of a new block.
-        if (isNewBlock) _getVolatileFeeConfigurationStorage().feeState[poolId] = poolState;
+        if (isNewBlock) {
+            _getVolatileFeeConfigurationStorage().feeState[poolId] = poolState;
+            emit FeeStateUpdated(
+                poolId,
+                poolState.blockNumber,
+                poolState.sqrtPriceTopX96,
+                poolState.askPermFeeE6,
+                config.restingSpreadE6 - poolState.askPermFeeE6,
+                poolState.tempFeeE6,
+                poolState.tempOnBid
+            );
+        }
 
         uint24 feeE6 = _getFee(poolState, config, currentSqrtPriceX96, params.zeroForOne);
         return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, feeE6 | LPFeeLibrary.OVERRIDE_FEE_FLAG);

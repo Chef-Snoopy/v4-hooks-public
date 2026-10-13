@@ -42,7 +42,6 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     {
         _checkPoolInitialized(poolId_);
         _updateFeeConfig(poolId_, feeConfig_);
-        emit FeeConfigUpdated(poolId_, feeConfig_);
     }
 
     /// @inheritdoc IVolatileFeeConfiguration
@@ -51,25 +50,13 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         onlyRole(CONFIG_MANAGER_ROLE)
     {
         if (poolIds_.length != feeConfigs_.length) revert LengthMismatch();
-        for (uint256 i = 0; i < poolIds_.length; i++) {
+        for (uint256 i; i < poolIds_.length; i++) {
             _checkPoolInitialized(poolIds_[i]);
             _updateFeeConfig(poolIds_[i], feeConfigs_[i]);
-            emit FeeConfigUpdated(poolIds_[i], feeConfigs_[i]);
         }
     }
 
-    /// @notice Fee config for a pool.
-    /// @param poolId Pool to query
-    /// @return restingSpreadE6 Permanent pie: ask + bid fee
-    /// @return backrunCaptureFractionE6 LP share of backrun profit
-    /// @return midFadeRateE6 Continuing-fee growth rate per unit move
-    /// @return maxMidFadeE6 Cap on the continuing fade
-    /// @return skewRateE6 Baseline lean per unit of price impact
-    /// @return maxSkewStepE6 Max skew change per block
-    /// @return maxSkewE6 Skew ceiling
-    /// @return backrunThresholdE6 Price impact threshold at which the backrun fee component is active
-    /// @return restoreFractionE6 Share of the backrun side's permanent fee drop that the temp fee adds back; 1e6 = all of it
-    /// @return restoreThresholdE6 Price impact threshold at which the restore fee component is active
+    /// @inheritdoc IVolatileFeeConfiguration
     function feeConfig(PoolId poolId)
         public
         view
@@ -101,13 +88,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         );
     }
 
-    /// @notice Fee state for a pool.
-    /// @param poolId Pool to query
-    /// @return blockNumber Block of the last update. 0 if no swaps since last config update
-    /// @return sqrtPriceTopX96 Block-open sqrt price. 0 if no swaps since last config update
-    /// @return askPermFeeE6 Permanent ask-side fee; bid perm = restingSpreadE6 - askPermFeeE6
-    /// @return tempFeeE6 One-block backrun charge; baselines follow via VolatileFeeCalculation.baselineFee
-    /// @return tempOnBid True if tempFeeE6 is on the bid side, false if on the ask side
+    /// @inheritdoc IVolatileFeeConfiguration
     function feeState(PoolId poolId)
         public
         view
@@ -118,7 +99,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     }
 
     /// @notice Validates the config, stores it, and resets the pool's fee state to neutral.
-    /// @dev Resets block state, skew, permanent fee and temporary fee state
+    /// @dev Resets block state, skew, permanent fee and temporary fee state.
     /// @param _poolId Pool to configure
     /// @param _feeConfig New config
     function _updateFeeConfig(PoolId _poolId, VolatileFeeConfig calldata _feeConfig) internal {
@@ -142,6 +123,7 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
             tempFeeE6: 0,
             tempOnBid: false
         });
+        emit FeeConfigUpdated(_poolId, _feeConfig);
     }
 
     /// @notice Reverts PoolNotInitialized unless the pool has a stored config.
