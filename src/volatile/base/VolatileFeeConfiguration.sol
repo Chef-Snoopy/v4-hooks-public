@@ -60,21 +60,30 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
     function feeConfig(PoolId poolId)
         public
         view
-        returns (uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24, uint24)
+        returns (
+            uint24 restingSpreadE6,
+            uint24 backrunCaptureFractionE6,
+            uint24 midFadeRateE6,
+            uint24 maxMidFadeE6,
+            uint24 skewRateE6,
+            uint24 maxSkewStepE6,
+            uint24 maxSkewE6,
+            uint24 backrunThresholdE6,
+            uint24 restoreFractionE6,
+            uint24 restoreThresholdE6
+        )
     {
         VolatileFeeConfig storage config = _getVolatileFeeConfigurationStorage().feeConfig[poolId];
-        return (
-            config.restingSpreadE6,
-            config.backrunCaptureFractionE6,
-            config.midFadeRateE6,
-            config.maxMidFadeE6,
-            config.skewRateE6,
-            config.maxSkewStepE6,
-            config.maxSkewE6,
-            config.backrunThresholdE6,
-            config.restoreFractionE6,
-            config.restoreThresholdE6
-        );
+        restingSpreadE6 = config.restingSpreadE6;
+        backrunCaptureFractionE6 = config.backrunCaptureFractionE6;
+        midFadeRateE6 = config.midFadeRateE6;
+        maxMidFadeE6 = config.maxMidFadeE6;
+        skewRateE6 = config.skewRateE6;
+        maxSkewStepE6 = config.maxSkewStepE6;
+        maxSkewE6 = config.maxSkewE6;
+        backrunThresholdE6 = config.backrunThresholdE6;
+        restoreFractionE6 = config.restoreFractionE6;
+        restoreThresholdE6 = config.restoreThresholdE6;
     }
 
     /// @inheritdoc IVolatileFeeConfiguration
@@ -84,7 +93,11 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
         returns (uint40 blockNumber, uint160 sqrtPriceTopX96, uint24 askPermFeeE6, uint24 tempFeeE6, bool tempOnBid)
     {
         VolatileFeeState storage state = _getVolatileFeeConfigurationStorage().feeState[poolId];
-        return (state.blockNumber, state.sqrtPriceTopX96, state.askPermFeeE6, state.tempFeeE6, state.tempOnBid);
+        blockNumber = state.blockNumber;
+        sqrtPriceTopX96 = state.sqrtPriceTopX96;
+        askPermFeeE6 = state.askPermFeeE6;
+        tempFeeE6 = state.tempFeeE6;
+        tempOnBid = state.tempOnBid;
     }
 
     /// @notice Validates the config, stores it, and resets the pool's fee state to neutral.
