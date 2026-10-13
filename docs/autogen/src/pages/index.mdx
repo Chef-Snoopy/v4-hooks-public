@@ -89,7 +89,7 @@ implementation column reflects the current implementation as of the listed commi
 
 | Network | Proxy (hook)                               | Implementation                             | Commit Hash | Date       |
 | ------- | ------------------------------------------ | ------------------------------------------ | ----------- | ---------- |
-| Sepolia | 0x43Cf7BD23c903208c4eA457d77E1Fc6092653cC0 | 0x2FebC7b0c07a4f59d097C3Ff2c624163BEc90000 | 9da6be5     | 2026-10-09 |
+| Sepolia | 0x6B1DF823F9492000cC6Bc8dB2c1714E767DaFCc0 | 0x01C274A3Ea7CdA08c90140395349004cEf28C000 | ba9a531     | 2026-10-13 |
 
 On Sepolia, `owner`, `poolInitializer` and `configManager` are all the test deployer
 `0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95`.
