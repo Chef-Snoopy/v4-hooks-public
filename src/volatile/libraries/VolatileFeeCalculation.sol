@@ -29,8 +29,8 @@ library VolatileFeeCalculation {
     /// @notice Relative move between two sqrt prices, as an exact ratio of the reference price.
     /// @param sqrtPriceNewX96 Current/new sqrt price
     /// @param sqrtPriceRefX96 Reference sqrt price (denominator)
-    /// @return move The ratio |P_new - P_ref| / P_ref and whether the price increased
-    function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal pure returns (RelativeMove move) {
+    /// @return The ratio |P_new - P_ref| / P_ref and whether the price increased
+    function relativeMove(uint160 sqrtPriceNewX96, uint160 sqrtPriceRefX96) internal pure returns (RelativeMove) {
         if (sqrtPriceNewX96 == sqrtPriceRefX96) return RelativeMoveLibrary.pack(0, FixedPoint96.Q96, false);
         bool increased = sqrtPriceNewX96 > sqrtPriceRefX96;
 
@@ -187,15 +187,15 @@ library VolatileFeeCalculation {
     /// @param state Pool's fee state
     /// @param restingSpreadE6 Permanent pie: ask + bid fee
     /// @param zeroForOne Swap direction; a sell (true) pays the bid side, a buy (false) the ask side
-    /// @return baselineFeeE6 Baseline for that side, clamped to MAX_FEE_E6
+    /// @return Baseline for that side, clamped to MAX_FEE_E6
     function baselineFee(VolatileFeeState memory state, uint24 restingSpreadE6, bool zeroForOne)
         internal
         pure
-        returns (uint24 baselineFeeE6)
+        returns (uint24)
     {
         uint24 permFeeE6 = zeroForOne ? restingSpreadE6 - state.askPermFeeE6 : state.askPermFeeE6;
         if (zeroForOne != state.tempOnBid) return permFeeE6;
-        baselineFeeE6 = clampToMaxFeeE6(uint256(permFeeE6) + state.tempFeeE6);
+        return clampToMaxFeeE6(uint256(permFeeE6) + state.tempFeeE6);
     }
 
     /// @notice Clamps a fee to MAX_FEE_E6.
