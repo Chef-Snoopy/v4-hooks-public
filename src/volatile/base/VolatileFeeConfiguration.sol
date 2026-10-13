@@ -114,7 +114,8 @@ abstract contract VolatileFeeConfiguration is HookRoles, BlockNumberish, IVolati
 
         VolatileFeeConfigurationStorage storage $ = _getVolatileFeeConfigurationStorage();
         $.feeConfig[_poolId] = _feeConfig;
-        // Clear block price and temporary fee, and reset perm fees to restingSpread / 2
+        // Clear block price and temporary fee, and reset the ask perm fee to restingSpread / 2 (rounded down).
+        // The bid gets the remainder, so an odd spread puts the spare pip on the bid.
         // blockNumber 0 makes the next swap, even in this block, start fresh from the current pool price.
         $.feeState[_poolId] = VolatileFeeState({
             blockNumber: 0,

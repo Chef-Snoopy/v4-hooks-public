@@ -56,7 +56,7 @@ In a price range with no active liquidity, a swap moves the price at no cost and
 
 ### 9. A config update resets the pool's fee state immediately
 
-`_updateFeeConfig` sets `blockNumber` and `sqrtPriceTopX96` to 0, the temp fee to 0 and both permanent fees to `restingSpreadE6 / 2`. The next swap, even in the same block, starts fresh from the current pool price. Any temp fee or in block displacement for that block is dropped.
+`_updateFeeConfig` sets `blockNumber` and `sqrtPriceTopX96` to 0, the temp fee to 0 and the ask permanent fee to `restingSpreadE6 / 2` rounded down. The next swap, even in the same block, starts fresh from the current pool price. Any temp fee or in block displacement for that block is dropped. The bid permanent fee is always the rest of the spread, so with an odd spread the bid starts 1 pip above the ask.
 
 Where: `VolatileFeeConfiguration._updateFeeConfig`
 
