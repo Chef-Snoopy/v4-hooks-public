@@ -3,6 +3,8 @@ pragma solidity ^0.8.26;
 
 import {VolatilePairTestBase} from "./base/VolatilePairTestBase.sol";
 import {IDynamicFeeHook} from "../../src/interfaces/IDynamicFeeHook.sol";
+import {IVolatilePairHook} from "../../src/volatile/interfaces/IVolatilePairHook.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {VolatileFeeConfig, VolatileFeeState} from "../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 import {VolatileFeeCalculation} from "../../src/volatile/libraries/VolatileFeeCalculation.sol";
 import {ImmutableState} from "@uniswap/v4-periphery/src/base/ImmutableState.sol";
@@ -379,6 +381,47 @@ contract VolatilePairHookBeforeSwapTest is VolatilePairTestBase {
         // backrun = baseline + capture * displacement = 50% * 1% = 5_000
         assertGt(backrunFeeE6, continuingFeeE6, "backrun must cost more than continuing");
         assertApproxEqAbs(backrunFeeE6, NEUTRAL_FEE_E6 + 5_000, 100, "backrun ~ baseline + capture * 1%");
+    }
+
+    function test_beforeSwap_firstSwapOfBlock_emitsFeeStateUpdated() public {
+        PoolId poolId = testPoolKey.toId();
+        _swapFee(testPoolKey, true);
+        _setAmmPrice(SQRT_PRICE_UP_16_778_216_E6);
+        _advanceBlocks(1);
+
+        vm.recordLogs();
+        _swapFee(testPoolKey, true);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        VolatileFeeState memory s = _storedState(poolId);
+        assertEq(logs.length, 1, "one event");
+        assertEq(logs[0].emitter, address(hook), "emitter");
+        assertEq(logs[0].topics[0], IVolatilePairHook.FeeStateUpdated.selector, "signature");
+        assertEq(logs[0].topics[1], PoolId.unwrap(poolId), "indexed poolId");
+        assertEq(
+            logs[0].data,
+            abi.encode(
+                s.blockNumber,
+                s.sqrtPriceTopX96,
+                s.askPermFeeE6,
+                _storedConfig(poolId).restingSpreadE6 - s.askPermFeeE6,
+                s.tempFeeE6,
+                s.tempOnBid
+            ),
+            "fields match the stored state"
+        );
+        assertTrue(s.tempOnBid && s.tempFeeE6 != 0, "non-trivial state was logged");
+    }
+
+    function test_beforeSwap_laterSwapsInBlock_emitNothing() public {
+        _advanceBlocks(1);
+        _swapFee(testPoolKey, true);
+        _setAmmPrice(_sqrtPriceScaled(sqrtAmmPriceX96, 1_010_000));
+
+        vm.recordLogs();
+        _swapFee(testPoolKey, true);
+        _swapFee(testPoolKey, false);
+        assertEq(vm.getRecordedLogs().length, 0, "same block must not re-log");
     }
 
     // -------------------------------------------------------------------------
