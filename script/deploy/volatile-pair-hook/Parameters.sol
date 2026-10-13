@@ -22,11 +22,6 @@ contract Parameters {
     address public constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     uint256 public constant ETHEREUM_CHAIN_ID = 1;
-    uint256 public constant OPTIMISM_CHAIN_ID = 10;
-    uint256 public constant UNICHAIN_CHAIN_ID = 130;
-    uint256 public constant MONAD_CHAIN_ID = 143;
-    uint256 public constant BASE_CHAIN_ID = 8453;
-    uint256 public constant ARBITRUM_CHAIN_ID = 42161;
     uint256 public constant SEPOLIA_CHAIN_ID = 11155111;
 
     /// @notice Thrown when parameters are not set for a given chainId
@@ -38,46 +33,6 @@ contract Parameters {
         // PoolManager addresses: https://docs.uniswap.org/contracts/v4/deployments
         parameters[ETHEREUM_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0x000000000004444c5dc75cB358380D2e3dE08A90),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
-        });
-        parameters[OPTIMISM_CHAIN_ID] = DeployParameters({
-            poolManager: IPoolManager(0x9a13F98Cb987694C9F086b1F5eB990EeA8264Ec3),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
-        });
-        parameters[UNICHAIN_CHAIN_ID] = DeployParameters({
-            poolManager: IPoolManager(0x1F98400000000000000000000000000000000004),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
-        });
-        parameters[MONAD_CHAIN_ID] = DeployParameters({
-            poolManager: IPoolManager(0x188d586Ddcf52439676Ca21A244753fA19F9Ea8e),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
-        });
-        parameters[BASE_CHAIN_ID] = DeployParameters({
-            poolManager: IPoolManager(0x498581fF718922c3f8e6A244956aF099B2652b2b),
-            volatilePairHookProxySalt: bytes32(0),
-            volatilePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
-        });
-        parameters[ARBITRUM_CHAIN_ID] = DeployParameters({
-            poolManager: IPoolManager(0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32),
             volatilePairHookProxySalt: bytes32(0),
             volatilePairHookImplementationSalt: bytes32(0),
             owner: address(0),
