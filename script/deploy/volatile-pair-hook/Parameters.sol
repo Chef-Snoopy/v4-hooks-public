@@ -2,18 +2,24 @@
 pragma solidity ^0.8.26;
 
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {VolatileFeeConfig} from "../../../src/volatile/interfaces/IVolatileFeeConfiguration.sol";
 
 struct DeployParameters {
     IPoolManager poolManager;
-    bytes32 volatilePairHookProxySalt; // cached CREATE2 salt for the VolatilePairHook ERC1967 proxy (0 = mine at runtime)
-    // cached CREATE2 salt for the VolatilePairHook implementation, mined so the implementation
-    // address carries no hook-flag bits (0 = mine at runtime)
+    bytes32 volatilePairHookProxySalt;
     bytes32 volatilePairHookImplementationSalt;
-    // VolatilePairHook roles, baked into the proxy constructor args (and thus the mined hook
-    // address); must be set for a chain before deploying, the deploy script reverts on zero
     address owner;
     address poolInitializer;
     address configManager;
+}
+
+/// @notice Per-chain parameters for InitVolatilePairHook: the pool to initialize
+struct PoolParameters {
+    address currency0; // must sort below currency1; address(0) is native ETH
+    address currency1;
+    int24 tickSpacing;
+    uint160 sqrtPriceX96; // initial pool price; 0 means the pool is not set up yet
+    VolatileFeeConfig feeConfig;
 }
 
 /// @title Parameters
@@ -24,10 +30,17 @@ contract Parameters {
     uint256 public constant ETHEREUM_CHAIN_ID = 1;
     uint256 public constant SEPOLIA_CHAIN_ID = 11155111;
 
+    string public constant POOL_ETH_USDC = "ETH/USDC";
+
     /// @notice Thrown when parameters are not set for a given chainId
     error ParametersNotSetForChainId(uint256 chainId);
+    /// @notice Thrown when pool parameters are not set for a given chainId and pool name
+    error PoolParametersNotSetForChainId(uint256 chainId, string poolName);
+    /// @notice Thrown when a pool's fee config is still the unfilled placeholder
+    error PoolFeeConfigNotSet(uint256 chainId, string poolName);
 
     mapping(uint256 chainId => DeployParameters) public parameters;
+    mapping(uint256 chainId => mapping(string poolName => PoolParameters)) internal poolParameters;
 
     constructor() {
         // PoolManager addresses: https://docs.uniswap.org/contracts/v4/deployments
@@ -49,6 +62,25 @@ contract Parameters {
             poolInitializer: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95,
             configManager: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95
         });
+
+        poolParameters[ETHEREUM_CHAIN_ID][POOL_ETH_USDC] = PoolParameters({
+            currency0: address(0), // native ETH
+            currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, // USDC
+            tickSpacing: 4,
+            sqrtPriceX96: 3_960_446_919_404_551_911_348_444,
+            feeConfig: VolatileFeeConfig({
+                restingSpreadE6: 800, // 8bp
+                backrunCaptureFractionE6: 500_000, // 0.5
+                midFadeRateE6: 4_000_000, // 4x the in-block move
+                maxMidFadeE6: 200, // 2bp
+                skewRateE6: 1_000_000, // 1x the block price impact: a 1bp move steps the skew 1bp
+                maxSkewStepE6: 300, // 3bp
+                maxSkewE6: 800, // 8bp, equal to the resting spread
+                backrunThresholdE6: 500, // 5bp
+                restoreFractionE6: 1_000_000, // full restore
+                restoreThresholdE6: 500 // 5bp, same gate as backrun capture
+            })
+        });
     }
 
     function getParameters(uint256 chainId) public view returns (DeployParameters memory params) {
@@ -56,5 +88,19 @@ contract Parameters {
         if (address(params.poolManager) == address(0)) {
             revert ParametersNotSetForChainId(chainId);
         }
+    }
+
+    /// @notice Pool parameters for a named pool on a chain
+    /// @dev Unset is detected by sqrtPriceX96 == 0, not currency0, since native ETH pools use currency0 = address(0)
+    /// @param chainId The chain the pool lives on
+    /// @param poolName One of the POOL_* constants
+    function getPoolParameters(uint256 chainId, string memory poolName)
+        public
+        view
+        returns (PoolParameters memory params)
+    {
+        params = poolParameters[chainId][poolName];
+        if (params.sqrtPriceX96 == 0) revert PoolParametersNotSetForChainId(chainId, poolName);
+        if (params.feeConfig.restingSpreadE6 == 0) revert PoolFeeConfigNotSet(chainId, poolName);
     }
 }
