@@ -96,14 +96,17 @@ contract Parameters {
         });
         parameters[ARBITRUM_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32),
-            stablePairHookProxySalt: bytes32(0),
-            stablePairHookImplementationSalt: bytes32(0),
-            owner: address(0),
-            poolInitializer: address(0),
-            configManager: address(0)
+            // mined for 0x630e9CaC0ffF557Bd3A01DAa111ed253c771Bcc0
+            stablePairHookProxySalt: 0x0000000000000000000000000000000000000000000000000000000000005f95,
+            stablePairHookImplementationSalt: 0x0000000000000000000000000000000000000000000000000000000000004ea1,
+            owner: 0x2BAD8182C09F50c8318d769245beA52C32Be46CD,
+            poolInitializer: 0x3Dd872203E8FC405622ddc02A69de3BD9D52C4F8,
+            configManager: 0x2BAD8182C09F50c8318d769245beA52C32Be46CD
         });
         parameters[SEPOLIA_CHAIN_ID] = DeployParameters({
             poolManager: IPoolManager(0xE03A1074c86CFeDd5C142C4F04F1a1536e203543),
+            // deployed 0x2F45A94782d3e187BaB5F72448bb85d6d1d67CC0 at 7abd34b; this salt no longer
+            // reproduces that address and a rerun would revert with FlagsMismatch
             stablePairHookProxySalt: bytes32(uint256(0x30ad)),
             stablePairHookImplementationSalt: bytes32(uint256(0x6e7e)),
             owner: 0xE49ACc3B16c097ec88Dc9352CE4Cd57aB7e35B95,
@@ -130,6 +133,18 @@ contract Parameters {
             sqrtPriceX96: 79228162514264337593543950336, // 1:1
             feeConfig: StableFeeConfig({
                 k: 11_744_051, // 0.7 in Q24 (0.7 * 2**24)
+                optimalFeeE6: 50, // = .5bps = .005%
+                targetMultiplier: 100,
+                referenceSqrtPriceX96: 79228162514264337593543950336 // 1:1
+            })
+        });
+        poolParameters[ARBITRUM_CHAIN_ID][POOL_USDC_USDG] = PoolParameters({
+            currency0: 0x004B506865409877C9fA29bfb1ebA929984B9bbC, // USDG
+            currency1: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831, // USDC
+            tickSpacing: 1,
+            sqrtPriceX96: 79228162514264337593543950336, // 1:1
+            feeConfig: StableFeeConfig({
+                k: 16_653_011, // .9925968 in Q24 (0.9925968 * 2**24)
                 optimalFeeE6: 50, // = .5bps = .005%
                 targetMultiplier: 100,
                 referenceSqrtPriceX96: 79228162514264337593543950336 // 1:1
